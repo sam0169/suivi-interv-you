@@ -23,6 +23,7 @@
   --r:16px;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
 .wrap{max-width:1280px;margin:0 auto;padding-block:16px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
@@ -255,7 +256,9 @@ dialog::backdrop{background:rgba(28,34,48,.35)}
   <section class="panel" id="evol" aria-labelledby="bilan-h">
     <div class="locks-head"><h2 id="bilan-h">Évolution du sprint</h2><span class="small muted">Les courbes se remplissent jour après jour</span></div>
     <div class="chart-card"><h3>Activité jour par jour</h3><div id="ch-jours" style="overflow-x:auto"></div>
-      <div class="legend"><span><i style="background:#eef1f6"></i>Rien ce jour-là</span><span><i style="background:#9fdccf"></i>Un peu</span><span><i style="background:#0f9f8a"></i>Beaucoup</span><span><i style="background:#ffffff;border:2px solid #7c5cff"></i>Jour de cours</span><span>· survolez une case pour le détail</span></div></div>
+      <p class="small muted" style="margin:0">Chaque case = une journée. Le chiffre = nombre d'actions ce jour-là (pushes GitHub + mises à jour dans l'appli + sessions de travail).</p>
+      <div class="legend"><span><i style="background:#eef1f6"></i>Rien</span><span><i style="background:#9fdccf"></i>1 ou 2 actions</span><span><i style="background:#0f9f8a"></i>3 actions ou plus</span><span><i style="background:#ffffff;border:2px solid #7c5cff"></i>Jour de cours</span><span>· cliquez une case pour le détail</span></div>
+      <div class="presence pr-occupe" id="jours-detail" hidden></div></div>
     <div class="charts">
       <div class="chart-card"><h3>Burndown de l'équipe</h3><div id="ch-burn"></div><div class="legend"><span><i style="background:#98a2b3"></i>Effort idéal</span><span><i style="background:#ff6a3d"></i>Heures restantes réelles</span></div></div>
       <div class="chart-card"><h3>Avancement de chacun (% fait)</h3><div id="ch-membres"></div><div class="legend" id="lg-membres"></div></div>
@@ -712,7 +715,10 @@ function rendreJours(){
     (data.sessions||[]).filter(x=>x.membre===m.nom).forEach(x=>plus(x.debut,"session de travail"));
     jours.forEach((d,i)=>{const c=cle(d),n=cnt[c]||0,futur=d>auj,cours=JOURS_COURS.includes(d.getDay());
       const rect=add(s,"rect",{x:LL+i*CW+2,y:y+2,width:CW-4,height:RH-6,rx:5,fill:futur?"#f9fafb":n===0?"#eef1f6":n<3?"#9fdccf":"#0f9f8a",stroke:cours?"#7c5cff":"none","stroke-width":cours?2:0});
-      const tt=document.createElementNS(NS,"title");tt.textContent=m.nom+" · "+d.toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long"})+" : "+(futur?"à venir":n?Object.entries(det[c]).map(([k,v])=>v+" "+k+(v>1?"s":"")).join(", "):"aucune activité");rect.append(tt)});
+      const txt=m.nom+" · "+d.toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long"})+" : "+(futur?"à venir":n?Object.entries(det[c]).map(([k,v])=>v+" "+k+(v>1?"s":"")).join(", "):"aucune activité");
+      const tt=document.createElementNS(NS,"title");tt.textContent=txt;rect.append(tt);rect.style.cursor="pointer";
+      rect.addEventListener("click",()=>{const dd=$("jours-detail");dd.hidden=false;dd.textContent=txt});
+      if(n>0){const t2=add(s,"text",{x:LL+i*CW+CW/2,y:y+RH/2+2,"text-anchor":"middle","font-size":11,"font-weight":700,fill:n<3?"#0b5d51":"#ffffff","pointer-events":"none"},n)}});
   });
   $("ch-jours").replaceChildren(s);
 }
@@ -768,7 +774,7 @@ function rendreEquipe(){
         el("div",{},el("b",{class:"num",text:data.fichiers.filter(f=>!f.pousse&&f.membre===m.nom).length}),el("span",{text:"fichiers ouverts"}))));
     const sc=enCours(m.nom);if(sc)card.append(el("div",{class:"wk-badge"},el("i"),document.createTextNode("Travaille en ce moment · depuis "+duree(Date.now()-sc.debut))));
     const pj=presDuJour(m.nom);if(pj&&pj.statut!=="present")card.append(el("div",{class:"presence pr-"+pj.statut,text:"Aujourd'hui : "+textePres(pj)}));
-    if(mode==="on"&&debut){card.append(sparkline(mesCommits,debut,fin||new Date(),c))}
+    if(mode==="on"&&debut){card.append(sparkline(mesCommits,debut,fin||new Date(),c));card.append(el("div",{class:"small muted",style:"margin-top:-6px",text:"Pushes par jour pendant le sprint"}))}
     col.append(card);
     if(!mes.length)col.append(el("div",{class:"empty",text:"Aucune tâche pour l'instant."}));
     for(const t of mes.sort((a,b)=>(a.avancement>=100)-(b.avancement>=100)||a.cree-b.cree))col.append(carte(t,c));
@@ -855,7 +861,7 @@ $("f-set").addEventListener("submit",async e=>{
   store.set("repo",cfg.repo);store.set("branche",cfg.branche);store.set("token",cfg.token);
   $("d-set").close();
   if(changeConn)await connecter();
-  modifier(d=>{d.sprint=sprint;d.membres=membres;journal(d,"a mis à jour les réglages du sprint")},"réglages");
+  modifier(d=>{d.sprint=sprint;d.membres=membres;journal(d,"a mis à jour les réglages du sprint")},"réglages").then(()=>{if(mode==="on"){avis("Mise à jour des pushes GitHub…");chargerCommits().then(()=>{if($("notice").textContent.startsWith("Mise à jour"))avis("")})}});
 });
 
 // ---------- export ----------
