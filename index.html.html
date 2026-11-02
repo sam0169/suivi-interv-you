@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Suivi Interv_You</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Mise en page : barre du haut → bandeau du sprint (compte à rebours + anneau) → zone « ne pas toucher » → une colonne par équipier (carte + tâches) → activité et pushes GitHub. Thème clair assumé. */
+:root{
+  color-scheme:light;
+  --bg:#f4f6f9; --surface:#ffffff; --soft:#eef1f6; --line:#e1e6ee;
+  --ink:#1c2230; --muted:#667085; --faint:#98a2b3;
+  --accent:#ff6a3d; --accent-soft:#fff0ea;
+  --done:#0f9f8a; --done-soft:#e3f6f2;
+  --lock:#e5484d; --lock-soft:#fdecec;
+  --wait:#e8a317; --wait-soft:#fdf5e1;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
+  --body:"Figtree","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --r:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--body);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1280px;margin:0 auto;padding-block:16px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;font-weight:600;transition:border-color .15s,transform .15s}
+button:hover{border-color:var(--ink)}
+button:active{transform:scale(.97)}
+button.cta{background:var(--ink);color:#fff;border-color:var(--ink)}
+button.orange{background:var(--accent);border-color:var(--accent);color:#fff}
+button.link{border:0;background:none;padding:4px 6px;color:var(--muted);font-weight:500}
+button.link:hover{color:var(--ink)}
+:focus-visible{outline:3px solid #ffb59c;outline-offset:2px}
+input,select,textarea{width:100%;min-width:0;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+textarea{resize:vertical}
+label{display:grid;gap:5px;font-size:13px;font-weight:600;color:var(--muted)}
+.mono{font-family:var(--mono);font-size:12.5px}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.small{font-size:13px}
+
+/* Barre du haut */
+.top{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:800;font-size:20px}
+.brand i{width:34px;height:34px;border-radius:10px;background:var(--accent);display:grid;place-items:center;color:#fff;font-style:normal;font-size:17px}
+.top-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.who select{width:auto;padding:7px 10px}
+.conn{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:5px 12px}
+.conn b{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.conn.on b{background:var(--done);box-shadow:0 0 0 4px var(--done-soft)}
+.conn.demo b{background:var(--wait)}
+
+/* Bandeau du sprint */
+.hero{background:var(--surface);border-radius:24px;padding:24px;display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;border:1px solid var(--line)}
+@media (max-width:600px){.hero{grid-template-columns:1fr}.ring-box{justify-self:start}}
+.hero .eyebrow{font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:var(--accent)}
+.hero h1{font-size:clamp(28px,5vw,46px);font-weight:800;letter-spacing:-.02em;line-height:1.05;margin-top:4px}
+.hero .goal{max-width:62ch;color:var(--muted);margin-top:8px}
+.facts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.fact{background:var(--soft);border-radius:99px;padding:5px 12px;font-size:13px;font-weight:600}
+.fact.hot{background:var(--accent-soft);color:#c2410c}
+.ring-box{display:grid;place-items:center;text-align:center}
+.ring{width:150px;height:150px}
+.ring-label{margin-top:-104px;height:104px;font-family:var(--display)}
+.ring-label b{display:block;font-size:34px;font-weight:800;line-height:1}
+.ring-label span{font-size:12px;color:var(--muted)}
+
+/* Ne pas toucher */
+.locks{background:var(--lock-soft);border:1px solid #f7c9cb;border-radius:var(--r);padding:14px 16px;display:grid;gap:10px}
+.locks.clear{background:var(--done-soft);border-color:#bfe8df}
+.locks-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.locks h2{font-size:17px}
+.lock-list{display:flex;flex-wrap:wrap;gap:8px}
+.lock{display:flex;gap:10px;align-items:center;background:var(--surface);border:1px solid #f3b8bb;border-radius:12px;padding:8px 10px;min-width:0;max-width:100%}
+.lock .mono{overflow-wrap:anywhere}
+.lock .by{font-size:12px;color:var(--muted)}
+
+/* Équipe */
+.team{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;align-items:start}
+@media (max-width:1100px){.team{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}}
+.col{display:grid;gap:10px;min-width:0}
+.person{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:grid;gap:10px;position:relative;overflow:hidden}
+.person::before{content:"";position:absolute;inset:0 0 auto;height:5px;background:var(--c)}
+.p-head{display:flex;gap:10px;align-items:center}
+.avatar{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-family:var(--display);font-weight:800;color:#fff;background:var(--c);flex:none;position:relative}
+.avatar.live::after{content:"";position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:var(--done);border:2px solid var(--surface);animation:pulse 2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 5px rgba(15,159,138,.18)}}
+.p-name{font-family:var(--display);font-weight:700;font-size:17px;line-height:1.1}
+.badge{display:inline-block;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px;margin-top:3px}
+.b-on{background:var(--done-soft);color:var(--done)}
+.b-mid{background:var(--wait-soft);color:#a16207}
+.b-off{background:var(--soft);color:var(--muted)}
+.countdown{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.countdown b{font-family:var(--display);font-size:28px;font-weight:800;line-height:1}
+.countdown span{font-size:12px;color:var(--muted)}
+.meter{height:8px;border-radius:99px;background:var(--soft);overflow:hidden}
+.meter i{display:block;height:100%;border-radius:99px;background:var(--c);transition:width .5s}
+.p-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
+.p-stats div{background:var(--soft);border-radius:10px;padding:6px 2px}
+.p-stats b{display:block;font-size:15px}
+.p-stats span{font-size:11px;color:var(--muted)}
+.spark{width:100%;height:30px;display:block}
+
+/* Tâches */
+.task{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:8px;min-width:0}
+.task.done{background:#f7fcfb;border-color:#cdebe4}
+.task.blocked{border-color:#f3b8bb;background:#fffafa}
+.t-top{display:flex;justify-content:space-between;gap:8px;align-items:start}
+.t-title{font-weight:600;overflow-wrap:anywhere;line-height:1.3}
+.t-meta{font-size:12.5px;color:var(--muted)}
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.steps button{padding:5px 0;font-size:11.5px;border-radius:8px;font-weight:700;color:var(--muted);background:var(--soft);border-color:transparent}
+.steps button.on{background:var(--c);color:#fff}
+.steps button:disabled{cursor:default}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font-family:var(--mono);font-size:11px;background:var(--soft);border-radius:6px;padding:2px 6px;overflow-wrap:anywhere}
+.chip.hot{background:var(--lock-soft);color:var(--lock)}
+.pill{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border-radius:99px;padding:2px 8px;white-space:nowrap}
+.s-todo{background:var(--soft);color:var(--muted)}
+.s-doing{background:var(--accent-soft);color:#c2410c}
+.s-done{background:var(--done-soft);color:var(--done)}
+.s-block{background:var(--lock-soft);color:var(--lock)}
+.t-actions{display:flex;flex-wrap:wrap;gap:2px;justify-content:flex-end}
+.empty{border:1.5px dashed var(--line);border-radius:14px;padding:14px;color:var(--muted);font-size:13.5px;text-align:center}
+.add-task{border-style:dashed;background:transparent;color:var(--muted)}
+
+/* Bas de page */
+.lower{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:900px){.lower{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:grid;gap:12px;min-width:0}
+.panel h2{font-size:18px}
+.feed{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:420px;overflow:auto}
+.feed li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;padding:8px 4px;border-bottom:1px solid var(--soft)}
+.dot{width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--c)}
+.feed time{font-size:12px;color:var(--faint);white-space:nowrap}
+.bars{display:grid;gap:10px}
+.bar-row{display:grid;grid-template-columns:110px 1fr 46px;gap:10px;align-items:center;font-size:14px}
+.bar-row .track{height:14px;background:var(--soft);border-radius:99px;overflow:hidden}
+.bar-row .track i{display:block;height:100%;background:var(--c);border-radius:99px}
+.presence{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;border-radius:10px;padding:6px 9px}
+.pr-retard{background:var(--wait-soft);color:#7a4f00}
+.pr-absent{background:var(--lock-soft);color:#a3262b}
+.pr-occupe{background:#efeafe;color:#5b3fd6}
+.pr-present{background:var(--done-soft);color:var(--done)}
+.pres-table{width:100%;border-collapse:collapse;font-size:14px}
+.pres-table th,.pres-table td{padding:7px 6px;border-bottom:1px solid var(--soft);text-align:left;vertical-align:top}
+.pres-table th{font-size:12px;color:var(--muted);font-weight:600}
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+@media (max-width:900px){.charts{grid-template-columns:1fr}}
+.chart-card{border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:8px;min-width:0}
+.chart-card h3{font-size:15px}
+.chart-card svg{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+.notice{border-radius:12px;padding:10px 12px;font-size:13.5px;background:var(--wait-soft);color:#7a4f00}
+
+/* Fenêtres */
+dialog{border:0;border-radius:20px;padding:0;width:min(560px,calc(100vw - 32px));box-shadow:0 30px 80px rgba(16,24,40,.25)}
+dialog::backdrop{background:rgba(28,34,48,.35)}
+.dlg{padding:20px;display:grid;gap:14px}
+.dlg h2{font-size:21px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.help{font-size:13px;color:var(--muted);background:var(--soft);border-radius:12px;padding:10px 12px}
+.help ol{margin:4px 0 0;padding-left:18px}
+.err{color:var(--lock);font-size:13px;font-weight:600}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand"><i>🐺</i>Interv_You <span class="muted" style="font-weight:500">· suivi d'équipe</span></div>
+    <div class="top-actions">
+      <span class="conn" id="conn"><b></b><span id="conn-txt">Hors ligne</span></span>
+      <label class="who" style="display:flex;align-items:center;gap:6px;font-weight:600;color:var(--ink)">Je suis <select id="moi"></select></label>
+      <button class="orange" id="btn-pres">Retard / absence</button>
+      <button id="btn-export">Exporter</button>
+      <button id="btn-reglages">Réglages</button>
+    </div>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <section class="hero" aria-labelledby="s-nom">
+    <div>
+      <div class="eyebrow" id="s-eyebrow">Sprint en cours</div>
+      <h1 id="s-nom">Sprint</h1>
+      <p class="goal" id="s-obj"></p>
+      <div class="facts" id="s-facts"></div>
+    </div>
+    <div class="ring-box">
+      <svg class="ring" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="none" stroke="#eef1f6" stroke-width="12"/><circle id="ring-arc" cx="60" cy="60" r="50" fill="none" stroke="#ff6a3d" stroke-width="12" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="314.16" transform="rotate(-90 60 60)" style="transition:stroke-dashoffset .6s"/></svg>
+      <div class="ring-label"><b id="ring-pct" class="num">0 %</b><span id="ring-sub">0 h sur 0 h</span></div>
+    </div>
+  </section>
+
+  <section class="locks clear" id="locks" aria-labelledby="locks-h">
+    <div class="locks-head">
+      <h2 id="locks-h">Aucun fichier en cours de modification</h2>
+      <button class="orange" id="btn-lock">+ Je modifie un fichier</button>
+    </div>
+    <div class="lock-list" id="lock-list"></div>
+  </section>
+
+  <section class="team" id="team" aria-label="Équipe"></section>
+
+  <section class="panel" aria-labelledby="pres-h">
+    <div class="locks-head"><h2 id="pres-h">Présences et retards</h2><span class="small muted" id="pres-sub"></span></div>
+    <div style="overflow-x:auto"><table class="pres-table"><thead><tr><th>Membre</th><th>Aujourd'hui</th><th class="num">Retards</th><th class="num">Absences</th><th>Dernier signalement</th></tr></thead><tbody id="pres-body"></tbody></table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="bilan-h">
+    <div class="locks-head"><h2 id="bilan-h">Évolution du sprint</h2><span class="small muted">Les courbes se remplissent jour après jour</span></div>
+    <div class="charts">
+      <div class="chart-card"><h3>Burndown de l'équipe</h3><div id="ch-burn"></div><div class="legend"><span><i style="background:#98a2b3"></i>Effort idéal</span><span><i style="background:#ff6a3d"></i>Heures restantes réelles</span></div></div>
+      <div class="chart-card"><h3>Avancement de chacun (% fait)</h3><div id="ch-membres"></div><div class="legend" id="lg-membres"></div></div>
+      <div class="chart-card"><h3>Apport de chacun</h3><div id="ch-apport"></div><div class="legend"><span><i style="background:#0f9f8a"></i>Heures faites</span><span><i style="background:#c7cfdb"></i>Heures restantes</span><span>· chiffre à droite : pushes</span></div></div>
+      <div class="chart-card"><h3>Retards et absences</h3><div id="ch-pres"></div><div class="legend"><span><i style="background:#e8a317"></i>Retard justifié</span><span><i style="background:#f5d48a"></i>Retard non justifié</span><span><i style="background:#e5484d"></i>Absence justifiée</span><span><i style="background:#f5a9ab"></i>Absence non justifiée</span></div></div>
+    </div>
+  </section>
+
+  <section class="lower">
+    <div class="panel">
+      <h2>Ce qui s'est passé</h2>
+      <ul class="feed" id="feed"></ul>
+    </div>
+    <div class="panel">
+      <h2>Pushes GitHub pendant le sprint</h2>
+      <div class="bars" id="gh-bars"></div>
+      <p class="small muted" id="gh-note"></p>
+    </div>
+  </section>
+</div>
+
+<!-- Tâche -->
+<dialog id="d-task"><form class="dlg" method="dialog" id="f-task">
+  <h2 id="t-h">Nouvelle tâche</h2>
+  <label>Tâche<input id="t-titre" maxlength="140" required placeholder="Ex. Écran de visionnement d'une tentative"></label>
+  <div class="grid2">
+    <label>Responsable<select id="t-membre"></select></label>
+    <label>Effort (heures)<input id="t-heures" type="number" min="0.5" step="0.5" value="3" required></label>
+  </div>
+  <label>Fichiers touchés (facultatif : laissez vide au planning, la liste se remplit toute seule avec « Je modifie un fichier »)<textarea id="t-fichiers" rows="3" placeholder="Assets/Scripts/UI/S_Controller.cs&#10;Assets/Scenes/Prototype.unity"></textarea></label>
+  <p class="err" id="t-err"></p>
+  <div class="row"><button type="button" class="link" data-close>Annuler</button><button type="submit" class="cta" id="t-ok">Enregistrer</button></div>
+</form></dialog>
+
+<!-- Fichier en cours -->
+<dialog id="d-lock"><form class="dlg" method="dialog" id="f-lock">
+  <h2>Je modifie un fichier</h2>
+  <p class="small muted">Les autres le verront en rouge et n'y toucheront pas tant que vous n'avez pas poussé.</p>
+  <label>Fichier, script ou scène<input id="l-chemin" class="mono" required placeholder="Assets/Scenes/Prototype.unity"></label>
+  <div class="grid2">
+    <label>Qui<select id="l-membre"></select></label>
+    <label>Pour la tâche<select id="l-tache"></select></label>
+  </div>
+  <p class="err" id="l-err"></p>
+  <div class="row"><button type="button" class="link" data-close>Annuler</button><button type="submit" class="orange">Bloquer le fichier</button></div>
+</form></dialog>
+
+<!-- Présence -->
+<dialog id="d-pres"><form class="dlg" method="dialog" id="f-pres">
+  <h2>Retard, absence ou empêchement</h2>
+  <p class="small muted">Chacun peut se signaler lui-même. Si quelqu'un est en retard sans prévenir, le Scrum Master peut l'indiquer : la ligne affichera qui l'a signalé.</p>
+  <div class="grid2">
+    <label>Qui<select id="p-membre"></select></label>
+    <label>Date<input type="date" id="p-date" required></label>
+    <label>Situation<select id="p-statut"><option value="retard">En retard</option><option value="absent">Absent</option><option value="occupe">Occupé (là, mais pas dispo)</option><option value="present">Présent (annule un signalement)</option></select></label>
+    <label>Heure d'arrivée prévue<input type="time" id="p-heure" value="08:30"></label>
+  </div>
+  <label>Raison (facultatif)<input id="p-raison" maxlength="140" placeholder="Ex. bus en retard, rendez-vous médical…"></label>
+  <div class="row"><button type="button" class="link" data-close>Annuler</button><button type="submit" class="orange">Enregistrer</button></div>
+</form></dialog>
+
+<!-- Réglages -->
+<dialog id="d-set"><form class="dlg" method="dialog" id="f-set">
+  <h2>Réglages</h2>
+  <label>Nom du sprint<input id="r-nom" maxlength="40" placeholder="Sprint 4"></label>
+  <div class="grid2">
+    <label>Début<input type="date" id="r-debut"></label>
+    <label>Fin<input type="date" id="r-fin"></label>
+  </div>
+  <label>Objectif du sprint<textarea id="r-obj" rows="2"></textarea></label>
+  <h3 style="font-size:16px;margin-top:6px">Équipe et comptes GitHub</h3>
+  <div id="r-membres" style="display:grid;gap:8px"></div>
+  <h3 style="font-size:16px;margin-top:6px">Connexion GitHub (enregistrement partagé)</h3>
+  <div class="grid2">
+    <label>Dépôt (propriétaire/nom)<input id="r-repo" class="mono" placeholder="AlphalexYT/InterviewGame"></label>
+    <label>Branche de suivi<input id="r-branche" class="mono" placeholder="suivi-sprint"></label>
+  </div>
+  <label>Votre jeton GitHub (reste sur cet ordinateur)<input id="r-token" type="password" class="mono" autocomplete="off" placeholder="ghp_…"></label>
+  <div class="help">Pour créer votre jeton :<ol>
+    <li>GitHub → photo de profil → <b>Settings</b> → <b>Developer settings</b> → <b>Personal access tokens</b> → <b>Tokens (classic)</b>.</li>
+    <li><b>Generate new token (classic)</b>, cochez seulement <b>repo</b>, durée 90 jours.</li>
+    <li>Copiez le jeton ici. Ne le partagez avec personne.</li></ol>
+    Les données sont enregistrées dans le dépôt, sur une branche à part (<span class="mono">suivi-sprint</span>) : elles ne touchent jamais <span class="mono">development</span>.</div>
+  <p class="err" id="r-err"></p>
+  <div class="row"><button type="button" class="link" data-close>Fermer</button><button type="submit" class="cta">Enregistrer</button></div>
+</form></dialog>
+
+<script>
+(function(){
+"use strict";
+const COULEURS=["#ff6a3d","#7c5cff","#0f9f8a","#e8a317","#2e90fa"];
+const DEFAUT={sprint:{nom:"Sprint 4",debut:"",fin:"",objectif:""},
+  membres:[{nom:"Salim",github:""},{nom:"Irénée Parfait",github:""},{nom:"Grégory",github:""},{nom:"Alexandre",github:""},{nom:"Patrick",github:""}],
+  taches:[],fichiers:[],activite:[],presences:[],historique:{}};
+const $=id=>document.getElementById(id);
+const el=(t,a={},...k)=>{const e=document.createElement(t);for(const[n,v] of Object.entries(a)){if(n==="class")e.className=v;else if(n==="text")e.textContent=v;else if(n==="style")e.style.cssText=v;else if(n.startsWith("on"))e.addEventListener(n.slice(2),v);else if(v!==false&&v!=null)e.setAttribute(n,v===true?"":v)}for(const c of k)if(c!=null)e.append(c);return e};
+const h=x=>(Math.round(x*10)/10).toLocaleString("fr-CA")+" h";
+const jour=d=>d.toISOString().slice(0,10);
+const frD=s=>{if(!s)return"";const[y,m,d]=s.slice(0,10).split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString("fr-CA",{weekday:"short",day:"numeric",month:"short"})};
+const depuis=ts=>{const s=(Date.now()-ts)/1000;if(s<60)return"à l'instant";if(s<3600)return"il y a "+Math.floor(s/60)+" min";if(s<86400)return"il y a "+Math.floor(s/3600)+" h";const j=Math.floor(s/86400);return"il y a "+j+" j"};
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-4);
+const store={get(k,d){try{const v=localStorage.getItem("iy_"+k);return v==null?d:v}catch{return d}},set(k,v){try{localStorage.setItem("iy_"+k,v)}catch{}}};
+
+let data=structuredClone(DEFAUT), sha=null, mode="off", commits=[], editTask=null, dernierChargement=0;
+const cfg={repo:store.get("repo","AlphalexYT/InterviewGame"),branche:store.get("branche","suivi-sprint"),token:store.get("token","")};
+const CHEMIN="suivi-sprint/data.json";
+
+// ---------- GitHub ----------
+async function gh(path,opt={}){
+  const r=await fetch("https://api.github.com/repos/"+cfg.repo+path,{...opt,headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+cfg.token,...(opt.body?{"Content-Type":"application/json"}:{})}});
+  if(r.status===404)return null;
+  if(!r.ok){const e=new Error("GitHub "+r.status);e.status=r.status;throw e}
+  return r.status===204?{}:r.json();
+}
+const b64e=s=>btoa(unescape(encodeURIComponent(s)));
+const b64d=s=>decodeURIComponent(escape(atob(s.replace(/\n/g,""))));
+async function assurerBranche(){
+  if(await gh("/branches/"+encodeURIComponent(cfg.branche)))return;
+  const repo=await gh("");if(!repo)throw Object.assign(new Error("Dépôt introuvable"),{status:404});
+  const ref=await gh("/git/ref/heads/"+repo.default_branch);
+  await gh("/git/refs",{method:"POST",body:JSON.stringify({ref:"refs/heads/"+cfg.branche,sha:ref.object.sha})});
+}
+async function charger(){
+  const f=await gh("/contents/"+CHEMIN+"?ref="+encodeURIComponent(cfg.branche));
+  if(!f){sha=null;return structuredClone(DEFAUT)}
+  sha=f.sha;const d=JSON.parse(b64d(f.content));return {...structuredClone(DEFAUT),...d};
+}
+async function ecrire(d,msg){
+  const body={message:"[suivi] "+msg,content:b64e(JSON.stringify(d,null,1)),branch:cfg.branche};if(sha)body.sha=sha;
+  const r=await gh("/contents/"+CHEMIN,{method:"PUT",body:JSON.stringify(body)});sha=r.content.sha;
+}
+// applique une modification en relisant la dernière version (évite d'écraser le travail des autres)
+let file=Promise.resolve();
+function modifier(fn,msg){
+  file=file.then(async()=>{
+    if(mode!=="on"){fn(data);photo(data);rendre();return}
+    for(let i=0;i<3;i++){
+      try{const d=await charger();fn(d);photo(d);d.activite=(d.activite||[]).slice(-250);await ecrire(d,msg);data=d;rendre();etat("on");return}
+      catch(e){if(e.status===409||e.status===422)continue;erreurGH(e);return}
+    }
+    avis("Quelqu'un a modifié en même temps. Réessayez.");
+  });return file;
+}
+function journal(d,txt){(d.activite=d.activite||[]).push({t:Date.now(),membre:moi(),txt})}
+async function chargerCommits(){
+  if(mode!=="on")return;
+  try{
+    const debut=data.sprint.debut?new Date(data.sprint.debut+"T00:00:00"):new Date(Date.now()-14*864e5);
+    const branches=(await gh("/branches?per_page=100"))||[];
+    const vus=new Map();
+    for(const b of branches.filter(b=>b.name!==cfg.branche).slice(0,15)){
+      const l=await gh("/commits?sha="+encodeURIComponent(b.name)+"&since="+debut.toISOString()+"&per_page=100")||[];
+      for(const c of l)if(!vus.has(c.sha)&&!/^\[suivi\]/.test(c.commit.message))vus.set(c.sha,{sha:c.sha,login:(c.author&&c.author.login)||"",nom:c.commit.author.name||"",t:new Date(c.commit.author.date).getTime(),msg:c.commit.message.split("\n")[0],branche:b.name});
+    }
+    commits=[...vus.values()].sort((a,b)=>b.t-a.t);rendre();
+  }catch(e){erreurGH(e)}
+}
+function membreDuCommit(c){
+  for(const m of data.membres){const al=(m.github||"").split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
+    if(al.includes((c.login||"").toLowerCase())||al.includes((c.nom||"").toLowerCase()))return m.nom}
+  return null;
+}
+
+// ---------- calculs ----------
+const moi=()=>$("moi").value||"Quelqu'un";
+const couleur=n=>COULEURS[Math.max(0,data.membres.findIndex(m=>m.nom===n))%COULEURS.length];
+const reste=t=>(Number(t.heures)||0)*(1-(t.avancement||0)/100);
+function statut(t){if(t.bloquee)return["Bloquée","s-block"];if((t.avancement||0)>=100)return["Finie","s-done"];if(t.avancement>0)return["En cours","s-doing"];return["À faire","s-todo"]}
+function joursRestants(){if(!data.sprint.fin)return null;const f=new Date(data.sprint.fin+"T23:59:59");return Math.ceil((f-Date.now())/864e5)}
+function derniereActivite(nom){
+  const a=(data.activite||[]).filter(x=>x.membre===nom).map(x=>x.t);
+  const c=commits.filter(x=>membreDuCommit(x)===nom).map(x=>x.t);
+  return Math.max(0,...a,...c);
+}
+
+// ---------- rendu ----------
+function rendre(){rendreHero();rendreLocks();rendreEquipe();rendrePresences();rendreCourbes();rendreFeed();rendreGH()}
+function rendreHero(){
+  const s=data.sprint;$("s-nom").textContent=s.nom||"Sprint";
+  $("s-obj").textContent=s.objectif||"Ajoutez l'objectif du sprint dans les Réglages.";
+  const tot=data.taches.reduce((a,t)=>a+(Number(t.heures)||0),0),r=data.taches.reduce((a,t)=>a+reste(t),0),pct=tot?Math.round((tot-r)/tot*100):0;
+  $("ring-pct").textContent=pct+" %";$("ring-sub").textContent=h(tot-r)+" sur "+h(tot);
+  $("ring-arc").style.strokeDashoffset=314.16*(1-pct/100);
+  const f=$("s-facts");f.replaceChildren();
+  const jr=joursRestants();
+  if(jr!=null)f.append(el("span",{class:"fact hot",text:jr>1?jr+" jours restants":jr===1?"Dernier jour !":jr===0?"Fin du sprint aujourd'hui":"Sprint terminé"}));
+  if(s.debut||s.fin)f.append(el("span",{class:"fact",text:[s.debut&&"Du "+frD(s.debut),s.fin&&"au "+frD(s.fin)].filter(Boolean).join(" ")}));
+  f.append(el("span",{class:"fact",text:h(r)+" restantes pour l'équipe"}));
+  const finies=data.taches.filter(t=>(t.avancement||0)>=100).length;
+  f.append(el("span",{class:"fact",text:finies+" / "+data.taches.length+" tâches finies"}));
+}
+function rendreLocks(){
+  const actifs=data.fichiers.filter(x=>!x.pousse);const box=$("locks"),l=$("lock-list");l.replaceChildren();
+  box.className="locks"+(actifs.length?"":" clear");
+  $("locks-h").textContent=actifs.length?("Ne touchez pas à ces fichiers ("+actifs.length+")"):"Aucun fichier en cours de modification";
+  for(const x of actifs){
+    const t=data.taches.find(t=>t.id===x.tache);
+    l.append(el("div",{class:"lock"},
+      el("span",{class:"avatar",style:"--c:"+couleur(x.membre)+";width:30px;height:30px;font-size:12px",text:initiales(x.membre)}),
+      el("div",{style:"min-width:0"},el("div",{class:"mono",text:x.chemin}),el("div",{class:"by",text:x.membre+" · "+depuis(x.depuis)+(t?" · "+t.titre:"")})),
+      el("button",{class:"link",title:"Le fichier est poussé sur development",text:"Poussé ✓",onclick:()=>modifier(d=>{const f=d.fichiers.find(f=>f.id===x.id);if(f){f.pousse=true;f.libere=Date.now()}journal(d,"a poussé "+x.chemin+" (fichier libre)")},"fichier libéré "+x.chemin)})));
+  }
+}
+// une photo par jour : heures restantes de l'équipe et % de chacun
+function photo(d){
+  const t=d.taches||[],tot=t.reduce((a,x)=>a+(Number(x.heures)||0),0),r=t.reduce((a,x)=>a+reste(x),0),pm={};
+  for(const m of d.membres){const mes=t.filter(x=>x.membre===m.nom),h=mes.reduce((a,x)=>a+(Number(x.heures)||0),0),rr=mes.reduce((a,x)=>a+reste(x),0);pm[m.nom]=h?Math.round((h-rr)/h*100):0}
+  (d.historique=d.historique||{})[jourLocal()]={total:Math.round(tot*10)/10,reste:Math.round(r*10)/10,pct:pm};
+}
+const NS="http://www.w3.org/2000/svg";
+function svg(W,H){const s=document.createElementNS(NS,"svg");s.setAttribute("viewBox","0 0 "+W+" "+H);s.setAttribute("role","img");return s}
+function add(s,tag,a,txt){const n=document.createElementNS(NS,tag);for(const k in a)n.setAttribute(k,a[k]);if(txt!=null)n.textContent=txt;s.append(n);return n}
+function axeDates(){
+  const h=data.historique||{},ds=Object.keys(h).sort();const deb=data.sprint.debut||ds[0],fin=data.sprint.fin||ds[ds.length-1];
+  if(!deb||!fin||deb>=fin)return null;const t0=new Date(deb+"T00:00:00").getTime(),t1=new Date(fin+"T00:00:00").getTime();
+  return{deb,fin,ds:ds.filter(x=>x>=deb&&x<=fin),pos:x=>(new Date(x+"T00:00:00").getTime()-t0)/(t1-t0)};
+}
+function vide(id,txt){$(id).replaceChildren(el("p",{class:"small muted",text:txt}))}
+function rendreCourbes(){
+  const ax=axeDates(),W=460,H=230,L=40,R=14,T=12,B=30;
+  // 1. burndown
+  if(!ax)vide("ch-burn","Indiquez le début et la fin du sprint dans les Réglages.");
+  else{const h=data.historique,tot=Math.max(1,...Object.values(h).map(x=>x.total||0),data.taches.reduce((a,t)=>a+(Number(t.heures)||0),0));
+    const X=x=>L+ax.pos(x)*(W-L-R),Y=v=>T+(1-v/tot)*(H-T-B),s=svg(W,H);s.setAttribute("aria-label","Burndown de l'équipe");
+    const st=tot>60?20:tot>25?10:5;for(let v=0;v<=tot;v+=st){add(s,"line",{x1:L,x2:W-R,y1:Y(v),y2:Y(v),stroke:"#eef1f6"});add(s,"text",{x:L-6,y:Y(v)+4,"text-anchor":"end","font-size":11,fill:"#98a2b3"},v)}
+    add(s,"text",{x:L,y:H-8,"font-size":11,fill:"#98a2b3"},frD(ax.deb));add(s,"text",{x:W-R,y:H-8,"font-size":11,fill:"#98a2b3","text-anchor":"end"},frD(ax.fin));
+    add(s,"line",{x1:X(ax.deb),y1:Y(tot),x2:X(ax.fin),y2:Y(0),stroke:"#98a2b3","stroke-width":2,"stroke-dasharray":"6 5"});
+    if(ax.ds.length){add(s,"polyline",{points:ax.ds.map(x=>X(x)+","+Y(h[x].reste)).join(" "),fill:"none",stroke:"#ff6a3d","stroke-width":3,"stroke-linejoin":"round"});
+      ax.ds.forEach(x=>add(s,"circle",{cx:X(x),cy:Y(h[x].reste),r:4,fill:"#ff6a3d",stroke:"#fff","stroke-width":2}));
+      const l=ax.ds[ax.ds.length-1];add(s,"text",{x:Math.min(X(l)+6,W-R-30),y:Y(h[l].reste)-8,"font-size":12,"font-weight":700,fill:"#1c2230"},h[l].reste+" h")}
+    $("ch-burn").replaceChildren(s)}
+  // 2. % par membre
+  const lg=$("lg-membres");lg.replaceChildren(...data.membres.map(m=>el("span",{},el("i",{style:"background:"+couleur(m.nom)}),document.createTextNode(m.nom))));
+  if(!ax||!ax.ds.length)vide("ch-membres","La courbe apparaîtra dès le premier avancement noté.");
+  else{const h=data.historique,X=x=>L+ax.pos(x)*(W-L-R),Y=v=>T+(1-v/100)*(H-T-B),s=svg(W,H);s.setAttribute("aria-label","Avancement de chaque membre");
+    for(let v=0;v<=100;v+=25){add(s,"line",{x1:L,x2:W-R,y1:Y(v),y2:Y(v),stroke:"#eef1f6"});add(s,"text",{x:L-6,y:Y(v)+4,"text-anchor":"end","font-size":11,fill:"#98a2b3"},v+"%")}
+    add(s,"text",{x:L,y:H-8,"font-size":11,fill:"#98a2b3"},frD(ax.deb));add(s,"text",{x:W-R,y:H-8,"font-size":11,fill:"#98a2b3","text-anchor":"end"},frD(ax.fin));
+    for(const m of data.membres){const c=couleur(m.nom),pts=ax.ds.map(x=>[X(x),Y((h[x].pct||{})[m.nom]||0)]);
+      add(s,"polyline",{points:pts.map(p=>p.join(",")).join(" "),fill:"none",stroke:c,"stroke-width":2.5,"stroke-linejoin":"round"});
+      pts.forEach(p=>add(s,"circle",{cx:p[0],cy:p[1],r:3.2,fill:c}))}
+    $("ch-membres").replaceChildren(s)}
+  // 3. apport
+  {const rows=data.membres.map(m=>{const mes=data.taches.filter(t=>t.membre===m.nom),hh=mes.reduce((a,t)=>a+(Number(t.heures)||0),0),rr=mes.reduce((a,t)=>a+reste(t),0);return{m:m.nom,fait:hh-rr,reste:rr,push:commits.filter(c=>membreDuCommit(c)===m.nom).length}});
+    const mx=Math.max(1,...rows.map(r=>r.fait+r.reste)),RH=34,H2=rows.length*RH+20,LL=110,RR=54,s=svg(W,H2);s.setAttribute("aria-label","Heures faites et restantes par membre");
+    rows.forEach((r,i)=>{const y=10+i*RH,w=W-LL-RR,wf=r.fait/mx*w,wr=r.reste/mx*w;
+      add(s,"text",{x:0,y:y+17,"font-size":13,fill:"#1c2230"},r.m);
+      add(s,"rect",{x:LL,y:y+4,width:w,height:18,rx:5,fill:"#f4f6f9"});
+      if(wf>0)add(s,"rect",{x:LL,y:y+4,width:wf,height:18,rx:5,fill:"#0f9f8a"});
+      if(wr>0)add(s,"rect",{x:LL+wf,y:y+4,width:wr,height:18,rx:5,fill:"#c7cfdb"});
+      if(r.fait+r.reste>0)add(s,"text",{x:LL+6,y:y+17,"font-size":11,"font-weight":700,fill:wf>60?"#ffffff":"#1c2230"},(Math.round(r.fait*10)/10)+" h / "+(Math.round((r.fait+r.reste)*10)/10)+" h");
+      add(s,"text",{x:W,y:y+17,"font-size":12,fill:"#667085","text-anchor":"end"},mode==="on"?r.push+" push":"—")});
+    $("ch-apport").replaceChildren(s)}
+  // 4. retards / absences, justifiés ou non
+  {const rows=data.membres.map(m=>{const l=(data.presences||[]).filter(p=>p.membre===m.nom&&(!data.sprint.debut||p.date>=data.sprint.debut)&&(!data.sprint.fin||p.date<=data.sprint.fin));const j={};for(const p of l)j[p.date]=p;const v=Object.values(j);
+      return{m:m.nom,rj:v.filter(p=>p.statut==="retard"&&p.raison).length,rn:v.filter(p=>p.statut==="retard"&&!p.raison).length,aj:v.filter(p=>p.statut==="absent"&&p.raison).length,an:v.filter(p=>p.statut==="absent"&&!p.raison).length}});
+    const mx=Math.max(1,...rows.map(r=>r.rj+r.rn+r.aj+r.an)),RH=34,H2=rows.length*RH+20,LL=110,RR=30,s=svg(W,H2);s.setAttribute("aria-label","Retards et absences par membre");
+    rows.forEach((r,i)=>{const y=10+i*RH,w=W-LL-RR;let x=LL;add(s,"text",{x:0,y:y+17,"font-size":13,fill:"#1c2230"},r.m);add(s,"rect",{x:LL,y:y+4,width:w,height:18,rx:5,fill:"#f4f6f9"});
+      for(const[k,c] of [["rj","#e8a317"],["rn","#f5d48a"],["aj","#e5484d"],["an","#f5a9ab"]]){if(!r[k])continue;const ww=r[k]/mx*w;add(s,"rect",{x,y:y+4,width:ww,height:18,fill:c});x+=ww}
+      const n=r.rj+r.rn+r.aj+r.an;add(s,"text",{x:W,y:y+17,"font-size":12,fill:"#667085","text-anchor":"end"},String(n))});
+    $("ch-pres").replaceChildren(s)}
+}
+const LIB={retard:"En retard",absent:"Absent",occupe:"Occupé",present:"Présent"};
+const presDuJour=(nom,d)=>{const l=(data.presences||[]).filter(p=>p.membre===nom&&p.date===(d||jourLocal()));return l.length?l[l.length-1]:null};
+const jourLocal=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+function textePres(p){return LIB[p.statut]+(p.statut==="retard"&&p.heure?" (arrivée vers "+p.heure.replace(":"," h ")+")":"")+(p.raison?" · "+p.raison:"")+(p.par&&p.par!==p.membre?" · signalé par "+p.par:"")}
+function compteSprint(nom){
+  const l=(data.presences||[]).filter(p=>p.membre===nom&&(!data.sprint.debut||p.date>=data.sprint.debut)&&(!data.sprint.fin||p.date<=data.sprint.fin));
+  const parJour={};for(const p of l)parJour[p.date]=p; // dernier signalement du jour
+  const v=Object.values(parJour);return{retards:v.filter(p=>p.statut==="retard").length,absences:v.filter(p=>p.statut==="absent").length,dernier:l[l.length-1]};
+}
+function rendrePresences(){
+  const b=$("pres-body");b.replaceChildren();
+  $("pres-sub").textContent=new Date().toLocaleDateString("fr-CA",{weekday:"long",day:"numeric",month:"long"})+" · compteurs depuis le début du sprint";
+  for(const m of data.membres){const p=presDuJour(m.nom),c=compteSprint(m.nom);
+    b.append(el("tr",{},el("td",{},el("b",{text:m.nom})),
+      el("td",{},p?el("span",{class:"presence pr-"+p.statut,text:textePres(p)}):el("span",{class:"muted",text:"Rien de signalé"})),
+      el("td",{class:"num",text:String(c.retards)}),el("td",{class:"num",text:String(c.absences)}),
+      el("td",{class:"small muted",text:c.dernier?frD(c.dernier.date)+" · "+LIB[c.dernier.statut]:"—"})));}
+}
+$("btn-pres").onclick=()=>{remplirMembres($("p-membre"),moi());$("p-date").value=jourLocal();$("p-statut").value="retard";$("p-heure").value="08:30";$("p-raison").value="";$("d-pres").showModal()};
+$("p-statut").onchange=()=>{$("p-heure").disabled=$("p-statut").value!=="retard"};
+$("f-pres").addEventListener("submit",e=>{
+  e.preventDefault();const v={id:uid(),membre:$("p-membre").value,date:$("p-date").value,statut:$("p-statut").value,heure:$("p-statut").value==="retard"?$("p-heure").value:"",raison:$("p-raison").value.trim(),par:moi(),t:Date.now()};
+  modifier(d=>{(d.presences=d.presences||[]).push(v);journal(d,(v.par!==v.membre?"signale "+v.membre+" : ":"se signale : ")+textePres(v).replace(/ · signalé par .*/,"")+" ("+frD(v.date)+")")},"présence "+v.membre);
+  $("d-pres").close();
+});
+const initiales=n=>(n||"?").split(/[\s-]+/).map(p=>p[0]).join("").slice(0,2).toUpperCase();
+function rendreEquipe(){
+  const box=$("team");box.replaceChildren();
+  const debut=data.sprint.debut?new Date(data.sprint.debut+"T00:00:00"):null, fin=data.sprint.fin?new Date(data.sprint.fin+"T23:59:59"):null;
+  for(const m of data.membres){
+    const c=couleur(m.nom),mes=data.taches.filter(t=>t.membre===m.nom);
+    const tot=mes.reduce((a,t)=>a+(Number(t.heures)||0),0),r=mes.reduce((a,t)=>a+reste(t),0),pct=tot?Math.round((tot-r)/tot*100):0;
+    const last=derniereActivite(m.nom),age=last?(Date.now()-last)/864e5:Infinity;
+    const [bl,bc]=age<1?["En action","b-on"]:age<3?["Actif "+depuis(last),"b-mid"]:last?["Rien depuis "+Math.floor(age)+" j","b-off"]:["Pas encore d'activité","b-off"];
+    const mesCommits=commits.filter(x=>membreDuCommit(x)===m.nom);
+    const col=el("div",{class:"col",style:"--c:"+c});
+    const card=el("article",{class:"person"},
+      el("div",{class:"p-head"},el("div",{class:"avatar"+(age<1?" live":""),text:initiales(m.nom)}),el("div",{},el("div",{class:"p-name",text:m.nom}),el("span",{class:"badge "+bc,text:bl}))),
+      el("div",{class:"countdown"},el("div",{},el("b",{class:"num",text:h(r)}),el("div",{},el("span",{text:"il te reste"}))),el("span",{class:"num",text:pct+" % fait"})),
+      el("div",{class:"meter"},el("i",{style:"width:"+pct+"%"})),
+      el("div",{class:"p-stats"},
+        el("div",{},el("b",{class:"num",text:mes.filter(t=>(t.avancement||0)>=100).length+"/"+mes.length}),el("span",{text:"tâches"})),
+        el("div",{},el("b",{class:"num",text:mode==="on"?String(mesCommits.length):"—"}),el("span",{text:"pushes"})),
+        el("div",{},el("b",{class:"num",text:data.fichiers.filter(f=>!f.pousse&&f.membre===m.nom).length}),el("span",{text:"fichiers ouverts"}))));
+    const pj=presDuJour(m.nom);if(pj&&pj.statut!=="present")card.append(el("div",{class:"presence pr-"+pj.statut,text:"Aujourd'hui : "+textePres(pj)}));
+    if(mode==="on"&&debut){card.append(sparkline(mesCommits,debut,fin||new Date(),c))}
+    col.append(card);
+    if(!mes.length)col.append(el("div",{class:"empty",text:"Aucune tâche pour l'instant."}));
+    for(const t of mes.sort((a,b)=>(a.avancement>=100)-(b.avancement>=100)||a.cree-b.cree))col.append(carte(t,c));
+    col.append(el("button",{class:"add-task",text:"+ Tâche pour "+m.nom.split(" ")[0],onclick:()=>ouvrirTache(null,m.nom)}));
+    box.append(col);
+  }
+}
+function sparkline(list,debut,fin,c){
+  const jours=Math.max(1,Math.ceil((fin-debut)/864e5));const n=Math.min(jours,30);const counts=new Array(n).fill(0);
+  for(const x of list){const i=Math.floor((x.t-debut)/864e5);if(i>=0&&i<n)counts[i]++}
+  const mx=Math.max(1,...counts),W=200,H=30,bw=W/n;
+  const ns="http://www.w3.org/2000/svg",s=document.createElementNS(ns,"svg");s.setAttribute("viewBox","0 0 "+W+" "+H);s.setAttribute("class","spark");s.setAttribute("preserveAspectRatio","none");
+  s.setAttribute("role","img");s.setAttribute("aria-label","Pushes par jour");
+  counts.forEach((v,i)=>{const r=document.createElementNS(ns,"rect");const hh=v?Math.max(3,v/mx*(H-2)):2;r.setAttribute("x",i*bw+1);r.setAttribute("width",Math.max(1,bw-2));r.setAttribute("y",H-hh);r.setAttribute("height",hh);r.setAttribute("rx",1.5);r.setAttribute("fill",v?c:"#e1e6ee");s.append(r)});
+  return s;
+}
+function carte(t,c){
+  const[lib,cls]=statut(t);const ouverts=new Set(data.fichiers.filter(f=>!f.pousse).map(f=>f.chemin));
+  const steps=el("div",{class:"steps",role:"group","aria-label":"Avancement"});
+  for(const v of [0,25,50,75,100])steps.append(el("button",{class:(t.avancement||0)>=v&&v>0||(v===0&&!t.avancement)?"on":"",text:v+"%",title:"Mettre à "+v+" %",onclick:()=>{if((t.avancement||0)===v)return;modifier(d=>{const x=d.taches.find(x=>x.id===t.id);if(x){x.avancement=v;x.maj=Date.now()}journal(d,"a mis « "+t.titre+" » à "+v+" %")},t.titre+" "+v+"%")}}));
+  const fich=(t.fichiers||[]).length?el("div",{class:"chips"},...t.fichiers.map(f=>el("span",{class:"chip"+(ouverts.has(f)?" hot":""),text:f}))):null;
+  return el("article",{class:"task"+((t.avancement||0)>=100?" done":"")+(t.bloquee?" blocked":"")},
+    el("div",{class:"t-top"},el("div",{class:"t-title",text:t.titre}),el("span",{class:"pill "+cls,text:lib})),
+    el("div",{class:"t-meta num",text:h(Number(t.heures)||0)+" prévues · "+h(reste(t))+" restantes"}),
+    steps,fich,
+    el("div",{class:"t-actions"},
+      el("button",{class:"link",text:t.bloquee?"Débloquer":"Je suis bloqué",onclick:()=>modifier(d=>{const x=d.taches.find(x=>x.id===t.id);if(x)x.bloquee=!x.bloquee;journal(d,(x&&x.bloquee?"est bloqué sur « ":"est débloqué sur « ")+t.titre+" »")},"blocage "+t.titre)}),
+      el("button",{class:"link",text:"Modifier",onclick:()=>ouvrirTache(t)}),
+      suppr(t)));
+}
+function suppr(t){const b=el("button",{class:"link",text:"Supprimer"});b.onclick=()=>{if(b.dataset.ok){modifier(d=>{d.taches=d.taches.filter(x=>x.id!==t.id);journal(d,"a supprimé « "+t.titre+" »")},"suppression "+t.titre)}else{b.dataset.ok=1;b.textContent="Confirmer ?";b.style.color="var(--lock)";setTimeout(()=>{delete b.dataset.ok;b.textContent="Supprimer";b.style.color=""},4000)}};return b}
+function rendreFeed(){
+  const items=[...(data.activite||[]).map(a=>({t:a.t,m:a.membre,txt:a.txt})),...commits.map(c=>({t:c.t,m:membreDuCommit(c)||c.login||c.nom,txt:"a poussé sur "+c.branche+" : « "+c.msg+" »"}))].sort((a,b)=>b.t-a.t).slice(0,60);
+  const f=$("feed");f.replaceChildren();
+  if(!items.length)f.append(el("li",{style:"grid-template-columns:1fr"},el("span",{class:"muted",text:"Rien encore. Chaque tâche ajoutée, chaque avancement et chaque push apparaîtra ici."})));
+  for(const i of items)f.append(el("li",{style:"--c:"+couleur(i.m)},el("span",{class:"dot"}),el("span",{},el("b",{text:i.m+" "}),document.createTextNode(i.txt)),el("time",{text:depuis(i.t)})));
+}
+function rendreGH(){
+  const box=$("gh-bars");box.replaceChildren();
+  if(mode!=="on"){$("gh-note").textContent="Connectez GitHub dans les Réglages pour voir les pushes de chacun.";return}
+  const counts=data.membres.map(m=>({m:m.nom,n:commits.filter(c=>membreDuCommit(c)===m.nom).length,last:Math.max(0,...commits.filter(c=>membreDuCommit(c)===m.nom).map(c=>c.t))}));
+  const mx=Math.max(1,...counts.map(c=>c.n));
+  for(const c of counts)box.append(el("div",{class:"bar-row",style:"--c:"+couleur(c.m)},el("span",{text:c.m}),el("div",{class:"track"},el("i",{style:"width:"+(c.n/mx*100)+"%"})),el("b",{class:"num",text:String(c.n)})));
+  const inconnus=commits.filter(c=>!membreDuCommit(c));
+  $("gh-note").textContent=(commits.length?"Dernier push "+depuis(commits[0].t)+". ":"Aucun push depuis le début du sprint. ")+(inconnus.length?inconnus.length+" push(es) sans membre associé : ajoutez les comptes GitHub dans les Réglages ("+[...new Set(inconnus.map(c=>c.login||c.nom))].slice(0,4).join(", ")+").":"");
+}
+
+// ---------- fenêtres ----------
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
+function remplirMembres(sel,val){sel.replaceChildren(...data.membres.map(m=>el("option",{value:m.nom,text:m.nom})));if(val)sel.value=val}
+function ouvrirTache(t,membre){
+  editTask=t||null;$("t-h").textContent=t?"Modifier la tâche":"Nouvelle tâche";remplirMembres($("t-membre"),t?t.membre:(membre||moi()));
+  $("t-titre").value=t?t.titre:"";$("t-heures").value=t?t.heures:3;$("t-fichiers").value=t?(t.fichiers||[]).join("\n"):"";$("t-err").textContent="";
+  $("d-task").showModal();$("t-titre").focus();
+}
+$("f-task").addEventListener("submit",e=>{
+  e.preventDefault();const titre=$("t-titre").value.trim();if(!titre){$("t-err").textContent="Donnez un nom à la tâche.";return}
+  const v={titre,membre:$("t-membre").value,heures:Number($("t-heures").value)||0,fichiers:$("t-fichiers").value.split("\n").map(s=>s.trim()).filter(Boolean)};
+  const id=editTask?editTask.id:uid();
+  modifier(d=>{const x=d.taches.find(x=>x.id===id);if(x){Object.assign(x,v,{maj:Date.now()});journal(d,"a modifié « "+titre+" »")}else{d.taches.push({id,...v,avancement:0,bloquee:false,cree:Date.now(),maj:Date.now()});journal(d,"a ajouté « "+titre+" » ("+h(v.heures)+") pour "+v.membre)}},(editTask?"modif ":"ajout ")+titre);
+  $("d-task").close();
+});
+$("btn-lock").onclick=()=>{remplirMembres($("l-membre"),moi());const s=$("l-tache");s.replaceChildren(el("option",{value:"",text:"—"}),...data.taches.filter(t=>(t.avancement||0)<100).map(t=>el("option",{value:t.id,text:t.titre})));$("l-chemin").value="";$("l-err").textContent="";$("d-lock").showModal();$("l-chemin").focus()};
+$("f-lock").addEventListener("submit",e=>{
+  e.preventDefault();const chemin=$("l-chemin").value.trim();if(!chemin)return;
+  const deja=data.fichiers.find(f=>!f.pousse&&f.chemin.toLowerCase()===chemin.toLowerCase());
+  if(deja&&deja.membre!==$("l-membre").value){$("l-err").textContent=deja.membre+" modifie déjà ce fichier. Attendez son push ou parlez-lui.";return}
+  const membre=$("l-membre").value,tache=$("l-tache").value;
+  modifier(d=>{d.fichiers.push({id:uid(),chemin,membre,tache,depuis:Date.now(),pousse:false});const t=d.taches.find(t=>t.id===tache);if(t&&!(t.fichiers||[]).includes(chemin))(t.fichiers=t.fichiers||[]).push(chemin);journal(d,"modifie "+chemin)},"fichier bloqué "+chemin);
+  $("d-lock").close();
+});
+$("btn-reglages").onclick=()=>{
+  const s=data.sprint;$("r-nom").value=s.nom||"";$("r-debut").value=s.debut||"";$("r-fin").value=s.fin||"";$("r-obj").value=s.objectif||"";
+  $("r-repo").value=cfg.repo;$("r-branche").value=cfg.branche;$("r-token").value=cfg.token;$("r-err").textContent="";
+  const box=$("r-membres");box.replaceChildren(...data.membres.map((m,i)=>el("div",{class:"grid2"},el("input",{value:m.nom,"aria-label":"Nom du membre "+(i+1),"data-i":i,"data-k":"nom"}),el("input",{class:"mono",value:m.github||"",placeholder:"compte GitHub (ex. salim-sanni)","aria-label":"Compte GitHub de "+m.nom,"data-i":i,"data-k":"github"}))));
+  $("d-set").showModal();
+};
+$("f-set").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const membres=data.membres.map((m,i)=>({nom:document.querySelector('[data-i="'+i+'"][data-k="nom"]').value.trim()||m.nom,github:document.querySelector('[data-i="'+i+'"][data-k="github"]').value.trim()}));
+  const sprint={nom:$("r-nom").value.trim(),debut:$("r-debut").value,fin:$("r-fin").value,objectif:$("r-obj").value.trim()};
+  const changeConn=$("r-repo").value.trim()!==cfg.repo||$("r-branche").value.trim()!==cfg.branche||$("r-token").value.trim()!==cfg.token;
+  cfg.repo=$("r-repo").value.trim()||"AlphalexYT/InterviewGame";cfg.branche=$("r-branche").value.trim()||"suivi-sprint";cfg.token=$("r-token").value.trim();
+  store.set("repo",cfg.repo);store.set("branche",cfg.branche);store.set("token",cfg.token);
+  $("d-set").close();
+  if(changeConn)await connecter();
+  modifier(d=>{d.sprint=sprint;d.membres=membres;journal(d,"a mis à jour les réglages du sprint")},"réglages");
+});
+
+// ---------- export ----------
+$("btn-export").onclick=()=>{
+  const e=x=>String(x??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+  const s=data.sprint,tot=data.taches.reduce((a,t)=>a+(Number(t.heures)||0),0),r=data.taches.reduce((a,t)=>a+reste(t),0);
+  let o='<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+e(s.nom)+' — suivi Interv_You</title><style>body{font-family:Segoe UI,Arial,sans-serif;max-width:960px;margin:24px auto;padding:0 16px;color:#1c2230;background:#f4f6f9}h1{margin-bottom:4px}h2{margin-top:28px}table{border-collapse:collapse;width:100%;background:#fff}th,td{border:1px solid #e1e6ee;padding:6px 8px;text-align:left;vertical-align:top;font-size:14px}th{background:#1c2230;color:#fff}.k{display:inline-block;background:#fff;border:1px solid #e1e6ee;border-radius:10px;padding:8px 12px;margin:4px 6px 0 0}.lock{color:#e5484d;font-weight:600}</style></head><body>';
+  o+='<h1>'+e(s.nom||"Sprint")+' — Interv_You</h1><p>'+e([s.debut&&"Du "+s.debut,s.fin&&"au "+s.fin].filter(Boolean).join(" "))+(s.objectif?'<br><b>Objectif :</b> '+e(s.objectif):"")+'</p>';
+  o+='<p><span class="k">Avancement : <b>'+(tot?Math.round((tot-r)/tot*100):0)+' %</b></span><span class="k">Fait : <b>'+h(tot-r)+'</b> sur '+h(tot)+'</span><span class="k">Exporté le '+new Date().toLocaleString("fr-CA")+'</span></p>';
+  o+='<h2>Équipe</h2><table><tr><th>Membre</th><th>Tâches finies</th><th>Effort (h)</th><th>Fait (h)</th><th>Reste (h)</th><th>% fait</th><th>Pushes</th><th>Dernière activité</th></tr>';
+  for(const m of data.membres){const mes=data.taches.filter(t=>t.membre===m.nom),t1=mes.reduce((a,t)=>a+(Number(t.heures)||0),0),r1=mes.reduce((a,t)=>a+reste(t),0),la=derniereActivite(m.nom);
+    o+='<tr><td>'+e(m.nom)+'</td><td>'+mes.filter(t=>(t.avancement||0)>=100).length+' / '+mes.length+'</td><td>'+h(t1)+'</td><td>'+h(t1-r1)+'</td><td>'+h(r1)+'</td><td>'+(t1?Math.round((t1-r1)/t1*100):0)+' %</td><td>'+(mode==="on"?commits.filter(c=>membreDuCommit(c)===m.nom).length:"—")+'</td><td>'+(la?new Date(la).toLocaleString("fr-CA"):"—")+'</td></tr>'}
+  o+='</table><h2>Tâches</h2><table><tr><th>Tâche</th><th>Responsable</th><th>Effort</th><th>Avancement</th><th>Statut</th><th>Fichiers touchés</th></tr>';
+  for(const t of data.taches)o+='<tr><td>'+e(t.titre)+'</td><td>'+e(t.membre)+'</td><td>'+h(Number(t.heures)||0)+'</td><td>'+(t.avancement||0)+' %</td><td>'+statut(t)[0]+'</td><td>'+e((t.fichiers||[]).join(", "))+'</td></tr>';
+  o+='</table><h2>Fichiers en cours (ne pas toucher)</h2><table><tr><th>Fichier</th><th>Qui</th><th>Depuis</th></tr>';
+  const ouv=data.fichiers.filter(f=>!f.pousse);if(!ouv.length)o+='<tr><td colspan="3">Aucun</td></tr>';
+  for(const f of ouv)o+='<tr><td class="lock">'+e(f.chemin)+'</td><td>'+e(f.membre)+'</td><td>'+new Date(f.depuis).toLocaleString("fr-CA")+'</td></tr>';
+  o+='</table><h2>Présences et retards du sprint</h2><table><tr><th>Date</th><th>Membre</th><th>Situation</th></tr>';for(const p of [...(data.presences||[])].sort((a,b)=>a.date<b.date?-1:1))o+='<tr><td>'+p.date+'</td><td>'+e(p.membre)+'</td><td>'+e(textePres(p))+'</td></tr>';
+  o+='</table><h2>Activité récente</h2><table><tr><th>Quand</th><th>Qui</th><th>Quoi</th></tr>';
+  for(const a of [...(data.activite||[])].reverse().slice(0,80))o+='<tr><td>'+new Date(a.t).toLocaleString("fr-CA")+'</td><td>'+e(a.membre)+'</td><td>'+e(a.txt)+'</td></tr>';
+  o+='</table></body></html>';
+  const url=URL.createObjectURL(new Blob([o],{type:"text/html"}));
+  const a=el("a",{href:url,download:(s.nom||"Sprint").replace(/[^\w-]+/g,"_")+"_suivi_"+jour(new Date())+".html"});document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
+};
+
+// ---------- état et démarrage ----------
+function etat(m){mode=m;const c=$("conn");c.className="conn"+(m==="on"?" on":m==="demo"?" demo":"");$("conn-txt").textContent=m==="on"?"En direct · "+cfg.repo:m==="demo"?"Mode essai (rien n'est enregistré)":"Hors ligne"}
+function avis(t){const n=$("notice");n.textContent=t;n.hidden=!t}
+function erreurGH(e){
+  if(e.status===401)avis("Votre jeton GitHub est refusé (expiré ou mal copié). Ouvrez les Réglages pour le remplacer.");
+  else if(e.status===403)avis("GitHub limite les requêtes ou votre jeton n'a pas le droit « repo ». Réessayez dans quelques minutes ou vérifiez le jeton.");
+  else if(e.status===404)avis("Dépôt introuvable. Vérifiez « propriétaire/nom » dans les Réglages et que votre compte y a accès.");
+  else avis("Impossible de joindre GitHub pour l'instant. Vos changements ne sont pas enregistrés ; réessayez dans un moment.");
+}
+async function connecter(){
+  if(!cfg.token){etat("demo");avis("Mode essai : vous pouvez tout essayer, mais rien n'est partagé. Pour travailler en équipe, ouvrez les Réglages et ajoutez votre jeton GitHub.");rendre();return}
+  try{avis("");$("conn-txt").textContent="Connexion à GitHub…";await assurerBranche();data=await charger();etat("on");dernierChargement=Date.now();await reconnaitre();rendre();chargerCommits()}
+  catch(e){etat("off");erreurGH(e);rendre()}
+}
+// reconnaît la personne à partir de son jeton GitHub
+let monLogin="";
+async function reconnaitre(){
+  try{const r=await fetch("https://api.github.com/user",{headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+cfg.token}});
+    if(!r.ok)return;const u=await r.json();monLogin=u.login||"";
+    const m=data.membres.find(m=>(m.github||"").split(",").map(x=>x.trim().toLowerCase()).includes(monLogin.toLowerCase()));
+    if(m){store.set("moi",m.nom);avis("")}
+    else avis("Connecté en tant que @"+monLogin+". Choisissez votre nom dans « Je suis », et ajoutez « "+monLogin+" » à votre ligne dans Réglages pour être reconnu automatiquement.");
+  }catch(e){}
+}
+// remplissage du sélecteur « Je suis »
+function majMoi(){const s=$("moi"),v=store.get("moi","");s.replaceChildren(...data.membres.map(m=>el("option",{value:m.nom,text:m.nom})));if(v)s.value=v}
+$("moi").onchange=()=>store.set("moi",$("moi").value);
+const _rendre=rendre;rendre=function(){majMoi();_rendre()};
+// actualisation : données toutes les 20 s, pushes toutes les 2 min
+setInterval(async()=>{if(mode!=="on"||document.hidden||document.querySelector("dialog[open]"))return;try{const d=await charger();if(JSON.stringify(d)!==JSON.stringify(data)){data=d;rendre()}}catch(e){}},20000);
+setInterval(()=>{if(!document.hidden)chargerCommits()},120000);
+setInterval(()=>{if(mode)rendreLocks()},60000);
+connecter();
+})();
+</script>
+</body>
+</html>
