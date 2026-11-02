@@ -280,7 +280,7 @@ dialog::backdrop{background:rgba(28,34,48,.35)}
 <dialog id="d-stop"><form class="dlg" method="dialog" id="f-stop">
   <h2>J'arrête de travailler</h2>
   <div class="grid2">
-    <label>Durée de travail (minutes)<input type="number" id="w-min" min="5" max="600" step="5" required></label>
+    <label>Durée de travail (minutes)<input type="number" id="w-min" min="1" max="600" step="1" required></label>
     <label>Sur quelle tâche<select id="w-tache"></select></label>
   </div>
   <label>Ce que j'ai fait (une phrase)<input id="w-note" maxlength="160" placeholder="Ex. j'ai fini l'écran de visionnement et je l'ai poussé"></label>
@@ -524,13 +524,13 @@ function rendreTravail(){
 $("btn-work").onclick=()=>{
   const nom=moi(),s=enCours(nom);
   if(!s){modifier(d=>{(d.sessions=d.sessions||[]).push({id:uid(),membre:nom,debut:Date.now(),fin:null,note:"",tache:""});journal(d,"commence à travailler sur le projet")},"début de travail "+nom);return}
-  $("w-min").value=Math.max(5,Math.min(600,Math.round((Date.now()-s.debut)/60000)));
+  $("w-min").value=Math.max(1,Math.min(600,Math.round((Date.now()-s.debut)/60000)));
   const sel=$("w-tache");sel.replaceChildren(el("option",{value:"",text:"—"}),...data.taches.filter(t=>t.membre===nom).map(t=>el("option",{value:t.id,text:t.titre})));
   $("w-note").value="";$("d-stop").showModal();
 };
 $("f-stop").addEventListener("submit",e=>{
   e.preventDefault();const nom=moi(),s=enCours(nom);if(!s){$("d-stop").close();return}
-  const min=Math.max(5,Math.min(600,Number($("w-min").value)||0)),note=$("w-note").value.trim(),tache=$("w-tache").value;
+  const min=Math.max(1,Math.min(600,Math.round(Number($("w-min").value)||0))),note=$("w-note").value.trim(),tache=$("w-tache").value;
   modifier(d=>{const x=(d.sessions||[]).find(x=>x.id===s.id);if(x){x.fin=x.debut+min*60000;x.note=note;x.tache=tache}const t=d.taches.find(t=>t.id===tache);
     journal(d,"a travaillé "+duree(min*60000)+(t?" sur « "+t.titre+" »":"")+(note?" : "+note:""))},"fin de travail "+nom);
   $("d-stop").close();
