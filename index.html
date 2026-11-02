@@ -157,6 +157,12 @@ label{display:grid;gap:5px;font-size:13px;font-weight:600;color:var(--muted)}
 .chart-card svg{width:100%;height:auto;display:block}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted)}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+.working{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:var(--done-soft);border:1px solid #bfe8df;border-radius:var(--r);padding:10px 14px;font-size:14px}
+.working b{color:var(--done)}
+.btn-work{background:var(--done);border-color:var(--done);color:#fff}
+.btn-work.stop{background:var(--ink);border-color:var(--ink)}
+.wk-badge{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--done);background:var(--done-soft);border-radius:10px;padding:6px 9px}
+.wk-badge i{width:8px;height:8px;border-radius:50%;background:var(--done);animation:pulse 1.6s infinite}
 .notice{border-radius:12px;padding:10px 12px;font-size:13.5px;background:var(--wait-soft);color:#7a4f00}
 
 /* Fenêtres */
@@ -181,6 +187,7 @@ dialog::backdrop{background:rgba(28,34,48,.35)}
     <div class="top-actions">
       <span class="conn" id="conn"><b></b><span id="conn-txt">Hors ligne</span></span>
       <label class="who" style="display:flex;align-items:center;gap:6px;font-weight:600;color:var(--ink)">Je suis <select id="moi"></select></label>
+      <button class="btn-work" id="btn-work">▶ Je commence à travailler</button>
       <button class="orange" id="btn-pres">Retard / absence</button>
       <button id="btn-export">Exporter</button>
       <button id="btn-reglages">Réglages</button>
@@ -188,6 +195,7 @@ dialog::backdrop{background:rgba(28,34,48,.35)}
   </header>
 
   <div class="notice" id="notice" hidden></div>
+  <div class="working" id="working" hidden></div>
 
   <section class="hero" aria-labelledby="s-nom">
     <div>
@@ -223,6 +231,8 @@ dialog::backdrop{background:rgba(28,34,48,.35)}
       <div class="chart-card"><h3>Burndown de l'équipe</h3><div id="ch-burn"></div><div class="legend"><span><i style="background:#98a2b3"></i>Effort idéal</span><span><i style="background:#ff6a3d"></i>Heures restantes réelles</span></div></div>
       <div class="chart-card"><h3>Avancement de chacun (% fait)</h3><div id="ch-membres"></div><div class="legend" id="lg-membres"></div></div>
       <div class="chart-card"><h3>Apport de chacun</h3><div id="ch-apport"></div><div class="legend"><span><i style="background:#0f9f8a"></i>Heures faites</span><span><i style="background:#c7cfdb"></i>Heures restantes</span><span>· chiffre à droite : pushes</span></div></div>
+      <div class="chart-card"><h3>Implication : temps de travail déclaré</h3><div id="ch-temps"></div><div class="legend"><span><i style="background:#7c5cff"></i>Pendant les cours (lun. et jeu.)</span><span><i style="background:#0f9f8a"></i>En dehors des cours</span></div></div>
+      <div class="chart-card"><h3>Implication : pushes GitHub</h3><div id="ch-push"></div><div class="legend"><span><i style="background:#7c5cff"></i>Pendant les cours (lun. et jeu.)</span><span><i style="background:#0f9f8a"></i>En dehors des cours</span><span>· chiffre à droite : jours actifs</span></div></div>
       <div class="chart-card"><h3>Retards et absences</h3><div id="ch-pres"></div><div class="legend"><span><i style="background:#e8a317"></i>Retard justifié</span><span><i style="background:#f5d48a"></i>Retard non justifié</span><span><i style="background:#e5484d"></i>Absence justifiée</span><span><i style="background:#f5a9ab"></i>Absence non justifiée</span></div></div>
     </div>
   </section>
@@ -264,6 +274,18 @@ dialog::backdrop{background:rgba(28,34,48,.35)}
   </div>
   <p class="err" id="l-err"></p>
   <div class="row"><button type="button" class="link" data-close>Annuler</button><button type="submit" class="orange">Bloquer le fichier</button></div>
+</form></dialog>
+
+<!-- Fin de session de travail -->
+<dialog id="d-stop"><form class="dlg" method="dialog" id="f-stop">
+  <h2>J'arrête de travailler</h2>
+  <div class="grid2">
+    <label>Durée de travail (minutes)<input type="number" id="w-min" min="5" max="600" step="5" required></label>
+    <label>Sur quelle tâche<select id="w-tache"></select></label>
+  </div>
+  <label>Ce que j'ai fait (une phrase)<input id="w-note" maxlength="160" placeholder="Ex. j'ai fini l'écran de visionnement et je l'ai poussé"></label>
+  <p class="small muted">Corrigez la durée si vous avez oublié d'arrêter le chrono.</p>
+  <div class="row"><button type="button" class="link" data-close>Continuer à travailler</button><button type="submit" class="cta">Enregistrer</button></div>
 </form></dialog>
 
 <!-- Présence -->
@@ -312,7 +334,7 @@ dialog::backdrop{background:rgba(28,34,48,.35)}
 const COULEURS=["#ff6a3d","#7c5cff","#0f9f8a","#e8a317","#2e90fa"];
 const DEFAUT={sprint:{nom:"Sprint 4",debut:"",fin:"",objectif:""},
   membres:[{nom:"Salim",github:""},{nom:"Irénée Parfait",github:""},{nom:"Grégory",github:""},{nom:"Alexandre",github:""},{nom:"Patrick",github:""}],
-  taches:[],fichiers:[],activite:[],presences:[],historique:{}};
+  taches:[],fichiers:[],activite:[],presences:[],historique:{},sessions:[]};
 const $=id=>document.getElementById(id);
 const el=(t,a={},...k)=>{const e=document.createElement(t);for(const[n,v] of Object.entries(a)){if(n==="class")e.className=v;else if(n==="text")e.textContent=v;else if(n==="style")e.style.cssText=v;else if(n.startsWith("on"))e.addEventListener(n.slice(2),v);else if(v!==false&&v!=null)e.setAttribute(n,v===true?"":v)}for(const c of k)if(c!=null)e.append(c);return e};
 const h=x=>(Math.round(x*10)/10).toLocaleString("fr-CA")+" h";
@@ -391,13 +413,13 @@ const reste=t=>(Number(t.heures)||0)*(1-(t.avancement||0)/100);
 function statut(t){if(t.bloquee)return["Bloquée","s-block"];if((t.avancement||0)>=100)return["Finie","s-done"];if(t.avancement>0)return["En cours","s-doing"];return["À faire","s-todo"]}
 function joursRestants(){if(!data.sprint.fin)return null;const f=new Date(data.sprint.fin+"T23:59:59");return Math.ceil((f-Date.now())/864e5)}
 function derniereActivite(nom){
-  const a=(data.activite||[]).filter(x=>x.membre===nom).map(x=>x.t);
+  const a=(data.activite||[]).filter(x=>x.membre===nom).map(x=>x.t);if(enCours(nom))a.push(Date.now());
   const c=commits.filter(x=>membreDuCommit(x)===nom).map(x=>x.t);
   return Math.max(0,...a,...c);
 }
 
 // ---------- rendu ----------
-function rendre(){rendreHero();rendreLocks();rendreEquipe();rendrePresences();rendreCourbes();rendreFeed();rendreGH()}
+function rendre(){rendreTravail();rendreHero();rendreLocks();rendreEquipe();rendrePresences();rendreCourbes();rendreFeed();rendreGH()}
 function rendreHero(){
   const s=data.sprint;$("s-nom").textContent=s.nom||"Sprint";
   $("s-obj").textContent=s.objectif||"Ajoutez l'objectif du sprint dans les Réglages.";
@@ -481,6 +503,51 @@ function rendreCourbes(){
       for(const[k,c] of [["rj","#e8a317"],["rn","#f5d48a"],["aj","#e5484d"],["an","#f5a9ab"]]){if(!r[k])continue;const ww=r[k]/mx*w;add(s,"rect",{x,y:y+4,width:ww,height:18,fill:c});x+=ww}
       const n=r.rj+r.rn+r.aj+r.an;add(s,"text",{x:W,y:y+17,"font-size":12,fill:"#667085","text-anchor":"end"},String(n))});
     $("ch-pres").replaceChildren(s)}
+  rendreImplication();
+}
+// ---------- sessions de travail ----------
+const JOURS_COURS=[1,4]; // lundi, jeudi
+const enCours=nom=>(data.sessions||[]).find(x=>x.membre===nom&&!x.fin);
+const duree=ms=>{const m=Math.round(ms/60000);return m<60?m+" min":Math.floor(m/60)+" h "+String(m%60).padStart(2,"0")};
+function rendreTravail(){
+  const actifs=data.membres.map(m=>({m:m.nom,s:enCours(m.nom)})).filter(x=>x.s);
+  const w=$("working");w.hidden=!actifs.length;w.replaceChildren();
+  if(actifs.length){w.append(el("span",{},"🟢 En train de travailler : "));actifs.forEach((x,i)=>w.append(el("span",{},el("b",{text:x.m}),document.createTextNode(" depuis "+duree(Date.now()-x.s.debut)+(i<actifs.length-1?" · ":"")))))}
+  const b=$("btn-work"),s=enCours(moi());
+  b.textContent=s?"■ J'arrête ("+duree(Date.now()-s.debut)+")":"▶ Je commence à travailler";b.classList.toggle("stop",!!s);
+}
+$("btn-work").onclick=()=>{
+  const nom=moi(),s=enCours(nom);
+  if(!s){modifier(d=>{(d.sessions=d.sessions||[]).push({id:uid(),membre:nom,debut:Date.now(),fin:null,note:"",tache:""});journal(d,"commence à travailler sur le projet")},"début de travail "+nom);return}
+  $("w-min").value=Math.max(5,Math.min(600,Math.round((Date.now()-s.debut)/60000)));
+  const sel=$("w-tache");sel.replaceChildren(el("option",{value:"",text:"—"}),...data.taches.filter(t=>t.membre===nom).map(t=>el("option",{value:t.id,text:t.titre})));
+  $("w-note").value="";$("d-stop").showModal();
+};
+$("f-stop").addEventListener("submit",e=>{
+  e.preventDefault();const nom=moi(),s=enCours(nom);if(!s){$("d-stop").close();return}
+  const min=Math.max(5,Math.min(600,Number($("w-min").value)||0)),note=$("w-note").value.trim(),tache=$("w-tache").value;
+  modifier(d=>{const x=(d.sessions||[]).find(x=>x.id===s.id);if(x){x.fin=x.debut+min*60000;x.note=note;x.tache=tache}const t=d.taches.find(t=>t.id===tache);
+    journal(d,"a travaillé "+duree(min*60000)+(t?" sur « "+t.titre+" »":"")+(note?" : "+note:""))},"fin de travail "+nom);
+  $("d-stop").close();
+});
+setInterval(()=>{if(mode)rendreTravail()},30000);
+const enCoursDeSprint=t=>{const d=new Date(t),j=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");return(!data.sprint.debut||j>=data.sprint.debut)&&(!data.sprint.fin||j<=data.sprint.fin)};
+const pendantCours=t=>JOURS_COURS.includes(new Date(t).getDay());
+function barresDoubles(id,rows,fmt,droite){
+  const W=460,mx=Math.max(1,...rows.map(r=>r.a+r.b)),RH=34,H2=rows.length*RH+20,LL=110,RR=86,s=svg(W,H2);
+  rows.forEach((r,i)=>{const y=10+i*RH,w=W-LL-RR,wa=r.a/mx*w,wb=r.b/mx*w;
+    add(s,"text",{x:0,y:y+17,"font-size":13,fill:"#1c2230"},r.m);add(s,"rect",{x:LL,y:y+4,width:w,height:18,rx:5,fill:"#f4f6f9"});
+    if(wa>0)add(s,"rect",{x:LL,y:y+4,width:wa,height:18,fill:"#7c5cff"});if(wb>0)add(s,"rect",{x:LL+wa,y:y+4,width:wb,height:18,fill:"#0f9f8a"});
+    if(r.a+r.b>0)add(s,"text",{x:LL+6,y:y+17,"font-size":11,"font-weight":700,fill:(wa+wb)>70?"#ffffff":"#1c2230"},fmt(r.a+r.b));
+    add(s,"text",{x:W,y:y+17,"font-size":12,fill:"#667085","text-anchor":"end"},droite(r))});
+  $(id).replaceChildren(s);
+}
+function rendreImplication(){
+  barresDoubles("ch-temps",data.membres.map(m=>{let a=0,b=0;for(const x of (data.sessions||[]).filter(x=>x.membre===m.nom&&x.fin&&enCoursDeSprint(x.debut))){const hh=(x.fin-x.debut)/36e5;pendantCours(x.debut)?a+=hh:b+=hh}return{m:m.nom,a,b}}),
+    v=>h(v),r=>r.b>0?"hors : "+h(r.b):"");
+  if(mode!=="on"){vide("ch-push","Connectez GitHub pour voir les pushes de chacun.");return}
+  barresDoubles("ch-push",data.membres.map(m=>{const l=commits.filter(c=>membreDuCommit(c)===m.nom&&enCoursDeSprint(c.t));return{m:m.nom,a:l.filter(c=>pendantCours(c.t)).length,b:l.filter(c=>!pendantCours(c.t)).length,jours:new Set(l.map(c=>new Date(c.t).toDateString())).size}}),
+    v=>v+" push",r=>r.jours+" j");
 }
 const LIB={retard:"En retard",absent:"Absent",occupe:"Occupé",present:"Présent"};
 const presDuJour=(nom,d)=>{const l=(data.presences||[]).filter(p=>p.membre===nom&&p.date===(d||jourLocal()));return l.length?l[l.length-1]:null};
@@ -526,6 +593,7 @@ function rendreEquipe(){
         el("div",{},el("b",{class:"num",text:mes.filter(t=>(t.avancement||0)>=100).length+"/"+mes.length}),el("span",{text:"tâches"})),
         el("div",{},el("b",{class:"num",text:mode==="on"?String(mesCommits.length):"—"}),el("span",{text:"pushes"})),
         el("div",{},el("b",{class:"num",text:data.fichiers.filter(f=>!f.pousse&&f.membre===m.nom).length}),el("span",{text:"fichiers ouverts"}))));
+    const sc=enCours(m.nom);if(sc)card.append(el("div",{class:"wk-badge"},el("i"),document.createTextNode("Travaille en ce moment · depuis "+duree(Date.now()-sc.debut))));
     const pj=presDuJour(m.nom);if(pj&&pj.statut!=="present")card.append(el("div",{class:"presence pr-"+pj.statut,text:"Aujourd'hui : "+textePres(pj)}));
     if(mode==="on"&&debut){card.append(sparkline(mesCommits,debut,fin||new Date(),c))}
     col.append(card);
@@ -633,6 +701,7 @@ $("btn-export").onclick=()=>{
   const ouv=data.fichiers.filter(f=>!f.pousse);if(!ouv.length)o+='<tr><td colspan="3">Aucun</td></tr>';
   for(const f of ouv)o+='<tr><td class="lock">'+e(f.chemin)+'</td><td>'+e(f.membre)+'</td><td>'+new Date(f.depuis).toLocaleString("fr-CA")+'</td></tr>';
   o+='</table><h2>Présences et retards du sprint</h2><table><tr><th>Date</th><th>Membre</th><th>Situation</th></tr>';for(const p of [...(data.presences||[])].sort((a,b)=>a.date<b.date?-1:1))o+='<tr><td>'+p.date+'</td><td>'+e(p.membre)+'</td><td>'+e(textePres(p))+'</td></tr>';
+  o+='</table><h2>Temps de travail déclaré</h2><table><tr><th>Membre</th><th>Début</th><th>Durée</th><th>Ce qui a été fait</th></tr>';for(const x of (data.sessions||[]).filter(x=>x.fin))o+='<tr><td>'+e(x.membre)+'</td><td>'+new Date(x.debut).toLocaleString("fr-CA")+'</td><td>'+duree(x.fin-x.debut)+'</td><td>'+e(x.note)+'</td></tr>';
   o+='</table><h2>Activité récente</h2><table><tr><th>Quand</th><th>Qui</th><th>Quoi</th></tr>';
   for(const a of [...(data.activite||[])].reverse().slice(0,80))o+='<tr><td>'+new Date(a.t).toLocaleString("fr-CA")+'</td><td>'+e(a.membre)+'</td><td>'+e(a.txt)+'</td></tr>';
   o+='</table></body></html>';
