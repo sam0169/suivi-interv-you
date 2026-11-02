@@ -373,6 +373,8 @@ dialog::backdrop{background:rgba(28,34,48,.35)}
     <label>Fin<input type="date" id="r-fin"></label>
   </div>
   <label>Objectif du sprint<textarea id="r-obj" rows="2"></textarea></label>
+  <label>Scrum Master du sprint<select id="r-sm"></select></label>
+  <p class="help" id="r-droits" style="margin:0"></p>
   <h3 style="font-size:16px;margin-top:6px">Équipe et comptes GitHub</h3>
   <div id="r-membres" style="display:grid;gap:8px"></div>
   <h3 style="font-size:16px;margin-top:6px">Connexion GitHub (enregistrement partagé)</h3>
@@ -444,6 +446,7 @@ async function ecrire(d,msg){
 // applique une modification en relisant la dernière version (évite d'écraser le travail des autres)
 let file=Promise.resolve();
 function modifier(fn,msg){
+  if(mode==="on"&&strict()&&!loginMembre()){refus();return Promise.resolve()}
   file=file.then(async()=>{
     if(mode!=="on"){fn(data);photo(data);rendre();return}
     for(let i=0;i<5;i++){
@@ -474,7 +477,23 @@ function membreDuCommit(c){
 }
 
 // ---------- calculs ----------
-const moi=()=>$("moi").value||"Quelqu'un";
+// ---------- droits : chacun modifie ce qui est à lui, le Scrum Master modifie tout ----------
+let monLogin="";
+const idsDe=m=>(m.github||"").split(",").map(x=>x.trim().toLowerCase()).filter(Boolean);
+const strict=(d=data)=>mode==="on"&&d.membres.some(m=>idsDe(m).length);   // dès qu'un compte GitHub est enregistré, l'identité vient du jeton
+const loginMembre=(d=data)=>{const l=monLogin.toLowerCase();if(!l)return"";const m=d.membres.find(m=>idsDe(m).includes(l));return m?m.nom:""};
+const moi=()=>{const i=strict()?loginMembre():"";return i||$("moi").value||"Quelqu'un"};
+const sm=(d=data)=>(d.sprint&&d.sprint.sm)||(d.membres[0]&&d.membres[0].nom)||"";
+const identite=(d=data)=>strict(d)?loginMembre(d):($("moi").value||"");
+const estSM=(d=data)=>mode!=="on"||(identite(d)!==""&&identite(d)===sm(d));
+const peutPour=(nom,d=data)=>{if(mode!=="on")return true;const i=identite(d);return i!==""&&(i===nom||i===sm(d))};
+function refus(nom){
+  let t;
+  if(strict()&&!loginMembre())t="Votre compte GitHub"+(monLogin?" (@"+monLogin+")":"")+" n'est pas associé à un membre : vous pouvez seulement regarder. Donnez votre identifiant au Scrum Master ("+sm()+") pour qu'il l'ajoute dans les Réglages.";
+  else t=!nom?"Seul le Scrum Master ("+sm()+") peut faire ça.":nom===sm()?"Seul "+nom+" (Scrum Master) peut faire ça.":"Seul "+nom+" ou le Scrum Master ("+sm()+") peut faire ça.";
+  avis(t);setTimeout(()=>{if($("notice").textContent===t)avis("")},8000);return false;
+}
+const garde=nom=>peutPour(nom)||refus(nom);
 const couleur=n=>COULEURS[Math.max(0,data.membres.findIndex(m=>m.nom===n))%COULEURS.length];
 const reste=t=>(Number(t.heures)||0)*(1-(t.avancement||0)/100);
 function statut(t){if(t.bloquee)return["Bloquée","s-block"];if((t.avancement||0)>=100)return["Finie","s-done"];if(t.avancement>0)return["En cours","s-doing"];return["À faire","s-todo"]}
@@ -494,6 +513,7 @@ function rendreHero(){
   $("ring-pct").textContent=pct+" %";$("ring-sub").textContent=h(tot-r)+" sur "+h(tot);
   $("ring-arc").style.strokeDashoffset=314.16*(1-pct/100);
   const f=$("s-facts");f.replaceChildren();
+  f.append(el("span",{class:"fact",text:"Scrum Master : "+sm()}));
   const jr=joursRestants();
   if(jr!=null)f.append(el("span",{class:"fact hot",text:jr>1?jr+" jours restants":jr===1?"Dernier jour !":jr===0?"Fin du sprint aujourd'hui":"Sprint terminé"}));
   if(s.debut||s.fin)f.append(el("span",{class:"fact",text:[s.debut&&"Du "+frD(s.debut),s.fin&&"au "+frD(s.fin)].filter(Boolean).join(" ")}));
@@ -510,7 +530,7 @@ function rendreLocks(){
     l.append(el("div",{class:"lock"},
       el("span",{class:"avatar",style:"--c:"+couleur(x.membre)+";width:30px;height:30px;font-size:12px",text:initiales(x.membre)}),
       el("div",{style:"min-width:0"},el("div",{class:"mono",text:x.chemin}),el("div",{class:"by",text:x.membre+" · "+depuis(x.depuis)+(t?" · "+t.titre:"")})),
-      el("button",{class:"link",title:"Le fichier est poussé sur development",text:"Poussé ✓",onclick:()=>modifier(d=>{const f=d.fichiers.find(f=>f.id===x.id);if(f){f.pousse=true;f.libere=Date.now()}journal(d,"a poussé "+x.chemin+" (fichier libre)")},"fichier libéré "+x.chemin)})));
+      el("button",{class:"link",title:"Le fichier est poussé sur development",text:"Poussé ✓",onclick:()=>{if(!garde(x.membre))return;modifier(d=>{const f=d.fichiers.find(f=>f.id===x.id);if(!f||!peutPour(f.membre,d))return;f.pousse=true;f.libere=Date.now();journal(d,"a poussé "+x.chemin+" (fichier libre)")},"fichier libéré "+x.chemin)}})));
   }
 }
 // une photo par jour : heures restantes de l'équipe et % de chacun
@@ -661,10 +681,11 @@ function rendreMelee(){
   for(const m of data.membres){const x=meleeDuJour(m.nom,d);
     b.append(el("tr",{},el("td",{},el("b",{text:m.nom})),...(x?[el("td",{text:x.hier}),el("td",{text:x.auj}),el("td",{text:x.obs||"Aucun"})]:[el("td",{colspan:3,class:"muted",text:"Pas encore remplie aujourd'hui"})])))}
 }
-$("btn-melee").onclick=()=>{remplirMembres($("me-membre"),moi());$("me-date").value=jourLocal();const x=meleeDuJour(moi(),jourLocal());$("me-hier").value=x?x.hier:"";$("me-auj").value=x?x.auj:"";$("me-obs").value=x?x.obs:"";$("d-melee").showModal()};
+$("btn-melee").onclick=()=>{remplirMembres($("me-membre"),moi());$("me-membre").disabled=!estSM();$("me-date").value=jourLocal();const x=meleeDuJour(moi(),jourLocal());$("me-hier").value=x?x.hier:"";$("me-auj").value=x?x.auj:"";$("me-obs").value=x?x.obs:"";$("d-melee").showModal()};
 $("f-melee").addEventListener("submit",e=>{e.preventDefault();
   const v={id:uid(),membre:$("me-membre").value,date:$("me-date").value,hier:$("me-hier").value.trim(),auj:$("me-auj").value.trim(),obs:$("me-obs").value.trim(),t:Date.now()};
-  modifier(d=>{(d.melees=d.melees||[]).push(v);journal(d,"a rempli sa mêlée"+(v.membre!==moi()?" pour "+v.membre:"")+(v.obs&&!/^aucun/i.test(v.obs)?" (obstacle : "+v.obs+")":""))},"mêlée "+v.membre);
+  if(!garde(v.membre)){$("d-melee").close();return}
+  modifier(d=>{if(!peutPour(v.membre,d))return;(d.melees=d.melees||[]).push(v);journal(d,"a rempli sa mêlée"+(v.membre!==moi()?" pour "+v.membre:"")+(v.obs&&!/^aucun/i.test(v.obs)?" (obstacle : "+v.obs+")":""))},"mêlée "+v.membre);
   $("d-melee").close();});
 // ---------- rétrospective ----------
 const COLS=[["bon","Ce qui a bien marché","r-bon"],["mauvais","Ce qui a moins bien marché","r-mauvais"],["changer","À changer","r-changer"]];
@@ -789,7 +810,7 @@ function rendreEquipe(){
     col.append(card);
     if(!mes.length)col.append(el("div",{class:"empty",text:"Aucune tâche pour l'instant."}));
     for(const t of mes.sort((a,b)=>(a.avancement>=100)-(b.avancement>=100)||a.cree-b.cree))col.append(carte(t,c));
-    col.append(el("button",{class:"add-task",text:"+ Tâche pour "+m.nom.split(" ")[0],onclick:()=>ouvrirTache(null,m.nom)}));
+    col.append(el("button",{class:"add-task",text:"+ Tâche pour "+m.nom.split(" ")[0],onclick:()=>{if(peutPour(m.nom))ouvrirTache(null,m.nom);else refus(m.nom)}}));
     box.append(col);
   }
 }
@@ -805,18 +826,18 @@ function sparkline(list,debut,fin,c){
 function carte(t,c){
   const[lib,cls]=statut(t);const ouverts=new Set(data.fichiers.filter(f=>!f.pousse).map(f=>f.chemin));
   const steps=el("div",{class:"steps",role:"group","aria-label":"Avancement"});
-  for(const v of [0,25,50,75,100])steps.append(el("button",{class:(t.avancement||0)>=v&&v>0||(v===0&&!t.avancement)?"on":"",text:v+"%",title:"Mettre à "+v+" %",onclick:()=>{if((t.avancement||0)===v)return;modifier(d=>{const x=d.taches.find(x=>x.id===t.id);if(x){x.avancement=v;x.maj=Date.now()}journal(d,"a mis « "+t.titre+" » à "+v+" %")},t.titre+" "+v+"%")}}));
+  for(const v of [0,25,50,75,100])steps.append(el("button",{class:(t.avancement||0)>=v&&v>0||(v===0&&!t.avancement)?"on":"",text:v+"%",title:"Mettre à "+v+" %",onclick:()=>{if((t.avancement||0)===v)return;if(!garde(t.membre))return;modifier(d=>{const x=d.taches.find(x=>x.id===t.id);if(!x||!peutPour(x.membre,d))return;x.avancement=v;x.maj=Date.now();journal(d,"a mis « "+t.titre+" » à "+v+" %")},t.titre+" "+v+"%")}}));
   const fich=(t.fichiers||[]).length?el("div",{class:"chips"},...t.fichiers.map(f=>el("span",{class:"chip"+(ouverts.has(f)?" hot":""),text:f}))):null;
   return el("article",{class:"task"+((t.avancement||0)>=100?" done":"")+(t.bloquee?" blocked":"")},
     el("div",{class:"t-top"},el("div",{class:"t-title",text:t.titre}),el("span",{class:"pill "+cls,text:lib})),
     el("div",{class:"t-meta num",text:h(Number(t.heures)||0)+" prévues · "+h(reste(t))+" restantes"}),
     steps,fich,
     el("div",{class:"t-actions"},
-      el("button",{class:"link",text:t.bloquee?"Débloquer":"Je suis bloqué",onclick:()=>modifier(d=>{const x=d.taches.find(x=>x.id===t.id);if(x)x.bloquee=!x.bloquee;journal(d,(x&&x.bloquee?"est bloqué sur « ":"est débloqué sur « ")+t.titre+" »")},"blocage "+t.titre)}),
-      el("button",{class:"link",text:"Modifier",onclick:()=>ouvrirTache(t)}),
+      el("button",{class:"link",text:t.bloquee?"Débloquer":"Je suis bloqué",onclick:()=>{if(!garde(t.membre))return;modifier(d=>{const x=d.taches.find(x=>x.id===t.id);if(!x||!peutPour(x.membre,d))return;x.bloquee=!x.bloquee;journal(d,(x.bloquee?"est bloqué sur « ":"est débloqué sur « ")+t.titre+" »")},"blocage "+t.titre)}}),
+      el("button",{class:"link",text:"Modifier",onclick:()=>{if(garde(t.membre))ouvrirTache(t)}}),
       suppr(t)));
 }
-function suppr(t){const b=el("button",{class:"link",text:"Supprimer"});b.onclick=()=>{if(b.dataset.ok){modifier(d=>{d.taches=d.taches.filter(x=>x.id!==t.id);journal(d,"a supprimé « "+t.titre+" »")},"suppression "+t.titre)}else{b.dataset.ok=1;b.textContent="Confirmer ?";b.style.color="var(--lock)";setTimeout(()=>{delete b.dataset.ok;b.textContent="Supprimer";b.style.color=""},4000)}};return b}
+function suppr(t){const b=el("button",{class:"link",text:"Supprimer"});b.onclick=()=>{if(!garde(t.membre))return;if(b.dataset.ok){modifier(d=>{const x=d.taches.find(x=>x.id===t.id);if(!x||!peutPour(x.membre,d))return;d.taches=d.taches.filter(x=>x.id!==t.id);journal(d,"a supprimé « "+t.titre+" »")},"suppression "+t.titre)}else{b.dataset.ok=1;b.textContent="Confirmer ?";b.style.color="var(--lock)";setTimeout(()=>{delete b.dataset.ok;b.textContent="Supprimer";b.style.color=""},4000)}};return b}
 function rendreFeed(){
   const items=[...(data.activite||[]).map(a=>({t:a.t,m:a.membre,txt:a.txt})),...commits.map(c=>({t:c.t,m:membreDuCommit(c)||c.login||c.nom,txt:"a poussé sur "+c.branche+" : « "+c.msg+" »"}))].sort((a,b)=>b.t-a.t).slice(0,60);
   const f=$("feed");f.replaceChildren();
@@ -837,7 +858,7 @@ function rendreGH(){
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest("dialog").close());
 function remplirMembres(sel,val){sel.replaceChildren(...data.membres.map(m=>el("option",{value:m.nom,text:m.nom})));if(val)sel.value=val}
 function ouvrirTache(t,membre){
-  editTask=t||null;$("t-h").textContent=t?"Modifier la tâche":"Nouvelle tâche";remplirMembres($("t-membre"),t?t.membre:(membre||moi()));
+  editTask=t||null;$("t-h").textContent=t?"Modifier la tâche":"Nouvelle tâche";remplirMembres($("t-membre"),t?t.membre:(membre||moi()));$("t-membre").disabled=!estSM();
   $("t-titre").value=t?t.titre:"";$("t-heures").value=t?t.heures:3;$("t-fichiers").value=t?(t.fichiers||[]).join("\n"):"";$("t-err").textContent="";
   $("d-task").showModal();$("t-titre").focus();
 }
@@ -845,29 +866,39 @@ $("f-task").addEventListener("submit",e=>{
   e.preventDefault();const titre=$("t-titre").value.trim();if(!titre){$("t-err").textContent="Donnez un nom à la tâche.";return}
   const v={titre,membre:$("t-membre").value,heures:Number($("t-heures").value)||0,fichiers:$("t-fichiers").value.split("\n").map(s=>s.trim()).filter(Boolean)};
   const id=editTask?editTask.id:uid();
-  modifier(d=>{const x=d.taches.find(x=>x.id===id);if(x){Object.assign(x,v,{maj:Date.now()});journal(d,"a modifié « "+titre+" »")}else{d.taches.push({id,...v,avancement:0,bloquee:false,cree:Date.now(),maj:Date.now()});journal(d,"a ajouté « "+titre+" » ("+h(v.heures)+") pour "+v.membre)}},(editTask?"modif ":"ajout ")+titre);
+  if(editTask){if(!garde(editTask.membre)){$("d-task").close();return}if(!estSM())v.membre=editTask.membre}
+  else if(!peutPour(v.membre)){refus(v.membre);$("d-task").close();return}
+  modifier(d=>{const x=d.taches.find(x=>x.id===id);if(x){if(!peutPour(x.membre,d))return;if(!estSM(d))v.membre=x.membre;Object.assign(x,v,{maj:Date.now()});journal(d,"a modifié « "+titre+" »")}else{if(!peutPour(v.membre,d))return;d.taches.push({id,...v,avancement:0,bloquee:false,cree:Date.now(),maj:Date.now()});journal(d,"a ajouté « "+titre+" » ("+h(v.heures)+") pour "+v.membre)}},(editTask?"modif ":"ajout ")+titre);
   $("d-task").close();
 });
-$("btn-lock").onclick=()=>{remplirMembres($("l-membre"),moi());const s=$("l-tache");s.replaceChildren(el("option",{value:"",text:"—"}),...data.taches.filter(t=>(t.avancement||0)<100).map(t=>el("option",{value:t.id,text:t.titre})));$("l-chemin").value="";$("l-err").textContent="";$("d-lock").showModal();$("l-chemin").focus()};
+$("btn-lock").onclick=()=>{remplirMembres($("l-membre"),moi());$("l-membre").disabled=!estSM();const s=$("l-tache");s.replaceChildren(el("option",{value:"",text:"—"}),...data.taches.filter(t=>(t.avancement||0)<100).map(t=>el("option",{value:t.id,text:t.titre})));$("l-chemin").value="";$("l-err").textContent="";$("d-lock").showModal();$("l-chemin").focus()};
 $("f-lock").addEventListener("submit",e=>{
   e.preventDefault();const chemin=$("l-chemin").value.trim();if(!chemin)return;
   const deja=data.fichiers.find(f=>!f.pousse&&f.chemin.toLowerCase()===chemin.toLowerCase());
   if(deja&&deja.membre!==$("l-membre").value){$("l-err").textContent=deja.membre+" modifie déjà ce fichier. Attendez son push ou parlez-lui.";return}
   const membre=$("l-membre").value,tache=$("l-tache").value;
-  modifier(d=>{d.fichiers.push({id:uid(),chemin,membre,tache,depuis:Date.now(),pousse:false});const t=d.taches.find(t=>t.id===tache);if(t&&!(t.fichiers||[]).includes(chemin))(t.fichiers=t.fichiers||[]).push(chemin);journal(d,"modifie "+chemin)},"fichier bloqué "+chemin);
+  if(!garde(membre)){$("d-lock").close();return}
+  modifier(d=>{if(!peutPour(membre,d))return;d.fichiers.push({id:uid(),chemin,membre,tache,depuis:Date.now(),pousse:false});const t=d.taches.find(t=>t.id===tache);if(t&&!(t.fichiers||[]).includes(chemin))(t.fichiers=t.fichiers||[]).push(chemin);journal(d,"modifie "+chemin)},"fichier bloqué "+chemin);
   $("d-lock").close();
 });
 let initSet=null; // ce qui était affiché à l'ouverture des Réglages (pour n'enregistrer que ce qui a vraiment changé)
 $("btn-reglages").onclick=()=>{
-  const s=data.sprint;initSet={sprint:{nom:s.nom||"",debut:s.debut||"",fin:s.fin||"",objectif:s.objectif||""},membres:data.membres.map(m=>({nom:m.nom,github:m.github||""}))};$("r-nom").value=s.nom||"";$("r-debut").value=s.debut||"";$("r-fin").value=s.fin||"";$("r-obj").value=s.objectif||"";
+  const s=data.sprint;initSet={sprint:{nom:s.nom||"",debut:s.debut||"",fin:s.fin||"",objectif:s.objectif||"",sm:sm()},membres:data.membres.map(m=>({nom:m.nom,github:m.github||""}))};$("r-nom").value=s.nom||"";$("r-debut").value=s.debut||"";$("r-fin").value=s.fin||"";$("r-obj").value=s.objectif||"";
   $("r-repo").value=cfg.repo;$("r-branche").value=cfg.branche;$("r-token").value=cfg.token;$("r-err").textContent="";
   const box=$("r-membres");box.replaceChildren(...data.membres.map((m,i)=>el("div",{class:"grid2"},el("input",{value:m.nom,"aria-label":"Nom du membre "+(i+1),"data-i":i,"data-k":"nom"}),el("input",{class:"mono",value:m.github||"",placeholder:"compte GitHub (ex. salim-sanni)","aria-label":"Compte GitHub de "+m.nom,"data-i":i,"data-k":"github"}))));
+  remplirMembres($("r-sm"),sm());
+  const peutTout=estSM();
+  ["r-nom","r-debut","r-fin","r-obj","r-sm"].forEach(i=>$(i).disabled=!peutTout);
+  document.querySelectorAll("#r-membres input").forEach(inp=>{const m=data.membres[inp.dataset.i];inp.disabled=!(peutTout||(inp.dataset.k==="github"&&identite()===m.nom))});
+  $("r-droits").textContent=peutTout?"Vous êtes Scrum Master : vous pouvez tout modifier.":"Seul le Scrum Master ("+sm()+") modifie le sprint et les comptes GitHub. Vous pouvez seulement changer votre connexion ci-dessous.";
   $("d-set").showModal();
 };
 $("f-set").addEventListener("submit",async e=>{
   e.preventDefault();
   const membres=data.membres.map((m,i)=>({nom:document.querySelector('[data-i="'+i+'"][data-k="nom"]').value.trim()||m.nom,github:document.querySelector('[data-i="'+i+'"][data-k="github"]').value.trim()}));
-  const sprint={nom:$("r-nom").value.trim(),debut:$("r-debut").value,fin:$("r-fin").value,objectif:$("r-obj").value.trim()};
+  const sprint={nom:$("r-nom").value.trim(),debut:$("r-debut").value,fin:$("r-fin").value,objectif:$("r-obj").value.trim(),sm:$("r-sm").value};
+  // évite de se bloquer soi-même : une fois les comptes GitHub renseignés, le vôtre doit y être
+  if(mode==="on"&&monLogin&&membres.some(m=>idsDe(m).length)&&!membres.some(m=>idsDe(m).includes(monLogin.toLowerCase()))){$("r-err").textContent="Ajoutez aussi votre propre compte (« "+monLogin+" ») sur votre ligne, sinon vous ne pourrez plus rien modifier.";return}
   const changeConn=$("r-repo").value.trim()!==cfg.repo||$("r-branche").value.trim()!==cfg.branche||$("r-token").value.trim()!==cfg.token;
   cfg.repo=$("r-repo").value.trim()||"AlphalexYT/InterviewGame";cfg.branche=$("r-branche").value.trim()||"suivi-sprint";cfg.token=$("r-token").value.trim();
   store.set("repo",cfg.repo);store.set("branche",cfg.branche);store.set("token",cfg.token);
@@ -878,7 +909,7 @@ $("f-set").addEventListener("submit",async e=>{
   const chS=Object.keys(sprint).filter(k=>sprint[k]!==(avant.sprint[k]||""));
   const chM=[];membres.forEach((m,i)=>{const a=avant.membres[i]||{};["nom","github"].forEach(k=>{if(m[k]!==(a[k]||""))chM.push([i,k,m[k]])})});
   if(!chS.length&&!chM.length)return;
-  modifier(d=>{d.sprint=d.sprint||{};chS.forEach(k=>d.sprint[k]=sprint[k]);chM.forEach(([i,k,v])=>{if(d.membres[i])d.membres[i][k]=v});journal(d,"a mis à jour les réglages du sprint")},"réglages").then(()=>{if(mode==="on"){avis("Mise à jour des pushes GitHub…");chargerCommits().then(()=>{if($("notice").textContent.startsWith("Mise à jour"))avis("")})}});
+  modifier(d=>{d.sprint=d.sprint||{};const tout=estSM(d);if(tout)chS.forEach(k=>d.sprint[k]=sprint[k]);chM.forEach(([i,k,v])=>{const m=d.membres[i];if(m&&(tout||(k==="github"&&identite(d)===m.nom)))m[k]=v});journal(d,"a mis à jour les réglages du sprint")},"réglages").then(()=>{if(mode==="on"){avis("Mise à jour des pushes GitHub…");chargerCommits().then(()=>{if($("notice").textContent.startsWith("Mise à jour"))avis("")})}});
 });
 
 // ---------- export ----------
@@ -929,17 +960,19 @@ async function connecter(){
   catch(e){etat("off");erreurGH(e);rendre()}
 }
 // reconnaît la personne à partir de son jeton GitHub
-let monLogin="";
 async function reconnaitre(){
   try{const r=await fetch("https://api.github.com/user",{headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+cfg.token}});
     if(!r.ok)return;const u=await r.json();monLogin=u.login||"";
     const m=data.membres.find(m=>(m.github||"").split(",").map(x=>x.trim().toLowerCase()).includes(monLogin.toLowerCase()));
     if(m){store.set("moi",m.nom);avis("")}
+    else if(strict())refus();
     else avis("Connecté en tant que @"+monLogin+". Choisissez votre nom dans « Je suis », et ajoutez « "+monLogin+" » à votre ligne dans Réglages pour être reconnu automatiquement.");
   }catch(e){}
 }
 // remplissage du sélecteur « Je suis »
-function majMoi(){const s=$("moi"),v=store.get("moi","");s.replaceChildren(...data.membres.map(m=>el("option",{value:m.nom,text:m.nom})));if(v)s.value=v}
+function majMoi(){const s=$("moi"),v=store.get("moi","");s.replaceChildren(...data.membres.map(m=>el("option",{value:m.nom,text:m.nom})));if(v)s.value=v;
+  const lm=strict()?loginMembre():"";if(lm){s.value=lm;store.set("moi",lm)}
+  s.disabled=strict();s.title=strict()?(lm?"Reconnu grâce à votre compte GitHub":"Compte GitHub non associé à un membre"):""}
 $("moi").onchange=()=>{store.set("moi",$("moi").value);rendre()};
 const _rendre=rendre;rendre=function(){majMoi();_rendre()};
 // actualisation : données toutes les 20 s, pushes toutes les 2 min
