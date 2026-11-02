@@ -328,7 +328,9 @@ const CHEMIN="suivi-sprint/data.json";
 
 // ---------- GitHub ----------
 async function gh(path,opt={}){
-  const r=await fetch("https://api.github.com/repos/"+cfg.repo+path,{...opt,headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+cfg.token,...(opt.body?{"Content-Type":"application/json"}:{})}});
+  const lecture=!opt.method||opt.method==="GET";
+  const url="https://api.github.com/repos/"+cfg.repo+path+(lecture?(path.includes("?")?"&":"?")+"_="+Date.now():"");
+  const r=await fetch(url,{...opt,cache:"no-store",headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+cfg.token,...(opt.body?{"Content-Type":"application/json"}:{})}});
   if(r.status===404)return null;
   if(!r.ok){const e=new Error("GitHub "+r.status);e.status=r.status;throw e}
   return r.status===204?{}:r.json();
@@ -355,11 +357,11 @@ let file=Promise.resolve();
 function modifier(fn,msg){
   file=file.then(async()=>{
     if(mode!=="on"){fn(data);photo(data);rendre();return}
-    for(let i=0;i<3;i++){
-      try{const d=await charger();fn(d);photo(d);d.activite=(d.activite||[]).slice(-250);await ecrire(d,msg);data=d;rendre();etat("on");return}
-      catch(e){if(e.status===409||e.status===422)continue;erreurGH(e);return}
+    for(let i=0;i<5;i++){
+      try{const d=await charger();fn(d);photo(d);d.activite=(d.activite||[]).slice(-250);await ecrire(d,msg);data=d;rendre();etat("on");if($("notice").textContent.startsWith("Quelqu"))avis("");return}
+      catch(e){if(e.status===409||e.status===422){await new Promise(r=>setTimeout(r,800+i*700+Math.random()*400));continue}erreurGH(e);return}
     }
-    avis("Quelqu'un a modifié en même temps. Réessayez.");
+    avis("Quelqu'un a modifié en même temps. Réessayez dans quelques secondes.");
   });return file;
 }
 function journal(d,txt){(d.activite=d.activite||[]).push({t:Date.now(),membre:moi(),txt})}
