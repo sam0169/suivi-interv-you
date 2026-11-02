@@ -231,8 +231,8 @@ dialog::backdrop{background:rgba(28,34,48,.35)}
       <div class="chart-card"><h3>Burndown de l'équipe</h3><div id="ch-burn"></div><div class="legend"><span><i style="background:#98a2b3"></i>Effort idéal</span><span><i style="background:#ff6a3d"></i>Heures restantes réelles</span></div></div>
       <div class="chart-card"><h3>Avancement de chacun (% fait)</h3><div id="ch-membres"></div><div class="legend" id="lg-membres"></div></div>
       <div class="chart-card"><h3>Apport de chacun</h3><div id="ch-apport"></div><div class="legend"><span><i style="background:#0f9f8a"></i>Heures faites</span><span><i style="background:#c7cfdb"></i>Heures restantes</span><span>· chiffre à droite : pushes</span></div></div>
-      <div class="chart-card"><h3>Implication : temps de travail déclaré</h3><div id="ch-temps"></div><div class="legend"><span><i style="background:#7c5cff"></i>Pendant les cours (lun. et jeu.)</span><span><i style="background:#0f9f8a"></i>En dehors des cours</span></div></div>
-      <div class="chart-card"><h3>Implication : pushes GitHub</h3><div id="ch-push"></div><div class="legend"><span><i style="background:#7c5cff"></i>Pendant les cours (lun. et jeu.)</span><span><i style="background:#0f9f8a"></i>En dehors des cours</span><span>· chiffre à droite : jours actifs</span></div></div>
+      <div class="chart-card"><h3>Implication : travail en dehors des cours</h3><div id="ch-temps"></div><div class="legend"><span><i style="background:#0f9f8a"></i>Heures hors cours déclarées avec « Je commence à travailler » (le temps entre 8 h et 16 h le lundi et le jeudi n'est pas compté)</span><span>· chiffre à droite : nombre de sessions</span></div></div>
+      <div class="chart-card"><h3>Implication : pushes GitHub</h3><div id="ch-push"></div><div class="legend"><span><i style="background:#7c5cff"></i>Pendant les cours (lun. et jeu., 8 h – 16 h)</span><span><i style="background:#0f9f8a"></i>En dehors des cours</span><span>· chiffre à droite : jours actifs</span></div></div>
       <div class="chart-card"><h3>Retards et absences</h3><div id="ch-pres"></div><div class="legend"><span><i style="background:#e8a317"></i>Retard justifié</span><span><i style="background:#f5d48a"></i>Retard non justifié</span><span><i style="background:#e5484d"></i>Absence justifiée</span><span><i style="background:#f5a9ab"></i>Absence non justifiée</span></div></div>
     </div>
   </section>
@@ -506,7 +506,12 @@ function rendreCourbes(){
   rendreImplication();
 }
 // ---------- sessions de travail ----------
-const JOURS_COURS=[1,4]; // lundi, jeudi
+const JOURS_COURS=[1,4], DEBUT_COURS=8, FIN_COURS=16; // lundi et jeudi, de 8 h à 16 h
+// minutes d'une période qui tombent PENDANT les heures de cours
+function minutesEnCours(a,b){let m=0;const d=new Date(a);d.setHours(0,0,0,0);
+  for(;d.getTime()<b;d.setDate(d.getDate()+1)){if(!JOURS_COURS.includes(d.getDay()))continue;
+    const c0=new Date(d).setHours(DEBUT_COURS,0,0,0),c1=new Date(d).setHours(FIN_COURS,0,0,0);m+=Math.max(0,Math.min(b,c1)-Math.max(a,c0))/60000}
+  return m}
 const enCours=nom=>(data.sessions||[]).find(x=>x.membre===nom&&!x.fin);
 const duree=ms=>{const m=Math.round(ms/60000);return m<60?m+" min":Math.floor(m/60)+" h "+String(m%60).padStart(2,"0")};
 function rendreTravail(){
@@ -532,7 +537,7 @@ $("f-stop").addEventListener("submit",e=>{
 });
 setInterval(()=>{if(mode)rendreTravail()},30000);
 const enCoursDeSprint=t=>{const d=new Date(t),j=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");return(!data.sprint.debut||j>=data.sprint.debut)&&(!data.sprint.fin||j<=data.sprint.fin)};
-const pendantCours=t=>JOURS_COURS.includes(new Date(t).getDay());
+const pendantCours=t=>{const d=new Date(t),hh=d.getHours()+d.getMinutes()/60;return JOURS_COURS.includes(d.getDay())&&hh>=DEBUT_COURS&&hh<FIN_COURS};
 function barresDoubles(id,rows,fmt,droite){
   const W=460,mx=Math.max(1,...rows.map(r=>r.a+r.b)),RH=34,H2=rows.length*RH+20,LL=110,RR=86,s=svg(W,H2);
   rows.forEach((r,i)=>{const y=10+i*RH,w=W-LL-RR,wa=r.a/mx*w,wb=r.b/mx*w;
@@ -543,8 +548,8 @@ function barresDoubles(id,rows,fmt,droite){
   $(id).replaceChildren(s);
 }
 function rendreImplication(){
-  barresDoubles("ch-temps",data.membres.map(m=>{let a=0,b=0;for(const x of (data.sessions||[]).filter(x=>x.membre===m.nom&&x.fin&&enCoursDeSprint(x.debut))){const hh=(x.fin-x.debut)/36e5;pendantCours(x.debut)?a+=hh:b+=hh}return{m:m.nom,a,b}}),
-    v=>h(v),r=>r.b>0?"hors : "+h(r.b):"");
+  barresDoubles("ch-temps",data.membres.map(m=>{const l=(data.sessions||[]).filter(x=>x.membre===m.nom&&x.fin&&enCoursDeSprint(x.debut));return{m:m.nom,a:0,b:l.reduce((t,x)=>t+Math.max(0,(x.fin-x.debut)/60000-minutesEnCours(x.debut,x.fin))/60,0),n:l.length}}),
+    v=>h(v),r=>r.n?r.n+" session"+(r.n>1?"s":""):"");
   if(mode!=="on"){vide("ch-push","Connectez GitHub pour voir les pushes de chacun.");return}
   barresDoubles("ch-push",data.membres.map(m=>{const l=commits.filter(c=>membreDuCommit(c)===m.nom&&enCoursDeSprint(c.t));return{m:m.nom,a:l.filter(c=>pendantCours(c.t)).length,b:l.filter(c=>!pendantCours(c.t)).length,jours:new Set(l.map(c=>new Date(c.t).toDateString())).size}}),
     v=>v+" push",r=>r.jours+" j");
