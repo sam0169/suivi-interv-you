@@ -783,7 +783,7 @@ function rendreEquipe(){
   }
 }
 function sparkline(list,debut,fin,c){
-  const jours=Math.max(1,Math.ceil((fin-debut)/864e5));const n=Math.min(jours,30);const counts=new Array(n).fill(0);
+  const jours=Math.max(1,Math.ceil((fin-debut)/864e5));const n=Math.min(jours,120);const counts=new Array(n).fill(0);
   for(const x of list){const i=Math.floor((x.t-debut)/864e5);if(i>=0&&i<n)counts[i]++}
   const mx=Math.max(1,...counts),W=200,H=30,bw=W/n;
   const ns="http://www.w3.org/2000/svg",s=document.createElementNS(ns,"svg");s.setAttribute("viewBox","0 0 "+W+" "+H);s.setAttribute("class","spark");s.setAttribute("preserveAspectRatio","none");
